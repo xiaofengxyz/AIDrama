@@ -1,12 +1,14 @@
 # AI 漫剧开源项目对比
 
-日期：2026-05-06
+日期：2026-05-07
 
 ## 结论
 
 推荐主基座：`LumenX Studio`。
 
 推荐备选：`LocalMiniDrama`。如果后续希望普通运营同事在 Windows 桌面上更轻量地使用，优先回看它。
+
+本轮补充结论：`superpowers-zh` 是 AI 编程 skills，不是漫剧生产基座；`Toonflow-app` 强但复杂度更高；`BigBanana-AI-Director` 的流程理念值得借鉴但商业使用受限；`huobao-drama` 热度高但平台化和授权边界仍需确认。详见 `docs/ai-drama-product-review.md`。
 
 暂不把高 star 项目作为主基座：
 
@@ -72,7 +74,7 @@ GitHub star/fork/commit 数读取于 2026-05-06，后续会变化，以项目页
 ## 推荐落地方案
 
 1. 本项目继续用 LumenX 做主基座。
-2. 保留 `external/lumenx` 作为官方上游参考源，后续按需 cherry-pick 或人工移植新功能。
+2. 保留 `external/open-source-repos/lumenx` 作为官方上游参考源，后续按需 cherry-pick 或人工移植新功能。
 3. 第一阶段只跑 DashScope-only，不急着接满 Kling/Vidu/Seedance。
 4. 建立镜头级抽卡台账，记录 prompt、参考图、模型、成本、候选评分和最终采用原因。
 5. 如果非技术同事上手阻力大，再把 LocalMiniDrama 作为桌面工具备选进行一次短期试用。

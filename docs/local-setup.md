@@ -1,6 +1,6 @@
 # 本地环境与项目配置
 
-日期：2026-05-06
+日期：2026-05-07
 
 ## 当前选择
 
@@ -13,7 +13,7 @@
 官方 LumenX 已浅克隆到：
 
 ```bash
-external/lumenx
+external/open-source-repos/lumenx
 ```
 
 该目录只作为本地参考源，已被 `.gitignore` 和 `.dockerignore` 忽略。不要把它作为主工程代码提交。

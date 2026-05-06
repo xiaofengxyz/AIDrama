@@ -25,6 +25,25 @@ const getApiUrl = (): string => {
 
 export const API_URL = getApiUrl();
 
+export function ensureArrayResponse<T>(data: unknown, endpoint: string): T[] {
+    if (Array.isArray(data)) {
+        return data as T[];
+    }
+
+    const receivedType = typeof data === "string"
+        ? data.trim().startsWith("<")
+            ? "HTML document"
+            : "string"
+        : data === null
+            ? "null"
+            : typeof data;
+
+    throw new Error(
+        `${endpoint} expected a JSON array but received ${receivedType}. ` +
+        "Check the frontend API base URL or nginx proxy routing."
+    );
+}
+
 export type ProviderMode = "dashscope" | "vendor";
 
 export interface EnvConfigPayload {
@@ -75,7 +94,8 @@ export const api = {
 
     getProjects: async () => {
         const res = await axios.get(`${API_URL}/projects/`);
-        return res.data.map((p: any) => ({ ...p, originalText: p.original_text }));
+        return ensureArrayResponse<any>(res.data, "GET /projects/")
+            .map((p: any) => ({ ...p, originalText: p.original_text }));
     },
 
     getProject: async (scriptId: string) => {
@@ -586,7 +606,7 @@ export const api = {
     },
     listSeries: async () => {
         const response = await axios.get(`${API_URL}/series`);
-        return response.data;
+        return ensureArrayResponse<any>(response.data, "GET /series");
     },
     getSeries: async (seriesId: string) => {
         const response = await axios.get(`${API_URL}/series/${seriesId}`);
@@ -604,7 +624,7 @@ export const api = {
     // Series Episodes
     getSeriesEpisodes: async (seriesId: string) => {
         const response = await axios.get(`${API_URL}/series/${seriesId}/episodes`);
-        return response.data;
+        return ensureArrayResponse<any>(response.data, `GET /series/${seriesId}/episodes`);
     },
     addEpisodeToSeries: async (seriesId: string, scriptId: string, episodeNumber?: number) => {
         const response = await axios.post(`${API_URL}/series/${seriesId}/episodes`, { script_id: scriptId, episode_number: episodeNumber });

@@ -1,6 +1,6 @@
 # 任务进度索引
 
-日期：2026-05-06
+日期：2026-05-07
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
@@ -9,12 +9,14 @@
 | 任务 | 状态 | 备注 |
 |---|---|---|
 | 先做计划再执行 | 已完成 | 已按计划推进，未启动子 agent |
-| 阅读 PRD 和仓库结构 | 已完成 | PRD 在 `Doc/drama prd`，密钥在 `Doc/accounts`，不要打印密钥 |
-| 遍历候选开源库并给出推荐 | 已完成 | 推荐 LumenX，详见 `docs/open-source-comparison.md` |
-| 清理上轮 clone | 已完成 | `.research/` 已删除 |
-| 克隆推荐上游仓库 | 已完成 | 官方 LumenX 已浅克隆到 `external/lumenx` |
-| 建立文档系统 | 已完成 | 本文件、文档中心、项目说明、AI 协作指南已补齐 |
-| 工作区清理、提交、push | 已完成 | Docker 启动和测试已通过，本轮修改已提交并 push |
+| 阅读 PRD 和仓库结构 | 已完成 | PRD 在 `Doc/drama prd`，密钥在 `Doc/accounts`，未打印密钥 |
+| 清理上轮 clone | 已完成 | 已删除旧 `external/lumenx` |
+| 克隆推荐上游仓库 | 已完成 | 官方 LumenX 已浅克隆到 `external/open-source-repos/lumenx` |
+| 定位 3014 客户端异常 | 已完成 | `/series` 未代理导致返回 HTML，触发 `Q.map is not a function` |
+| 产品经理分析 | 已完成 | 详见 `docs/ai-drama-product-review.md` |
+| 测试工程师用例分析 | 已完成 | 详见 `docs/ai-drama-test-analysis.md` |
+| 架构与工程修复 | 已完成 | 已修 nginx、API 地址、集合响应保护和测试 |
+| 工作区清理、提交、push | 已完成 | 测试、构建、Docker 重建、提交和 push 已完成 |
 
 ## 当前技术选择
 
@@ -29,7 +31,7 @@
 
 上游参考：
 
-- 路径：`external/lumenx`
+- 路径：`external/open-source-repos/lumenx`
 - 地址：`https://github.com/alibaba/lumenx.git`
 - 当前浅克隆提交：`e3251638240bdf6378e778e48f14d64b2c6b370b`
 - 提交日期：2026-05-04
@@ -46,6 +48,18 @@
 
 ## 本轮验证记录
 
+本轮新增验证：
+
+- `npm run test -- api-response nginx-proxy-config`：通过，2 个测试文件、4 个测试。
+- `npm run test`：通过，6 个测试文件、101 个测试。
+- `npm run build`：通过。Next export 模式提示 rewrites 不生效，属当前 Docker nginx 代理架构下的预期提醒。
+- `docker compose up -d --build frontend`：通过，已重建并启动 `lumenx-backend` 和 `lumenx-frontend`。
+- `curl http://localhost:3014/series`：HTTP 200，`Content-Type: application/json`，返回 `[]`。
+- `curl http://localhost:3014/projects/`：HTTP 200，`Content-Type: application/json`，返回 `[]`。
+- `curl http://localhost:3014/`：HTTP 200，页面包含 LumenX Studio 和空项目入口，无 `Application error` 标记。
+
+上一轮验证记录：
+
 - `docker compose config --quiet`：通过。
 - `make up`：通过，已启动 `lumenx-backend` 和 `lumenx-frontend`。
 - `curl http://localhost:17177/config/info`：HTTP 200。
@@ -53,10 +67,16 @@
 - 容器内完整后端测试：`117 passed, 41 warnings`。
 - 宿主直接跑完整 pytest 会因未安装 `dashscope`/`oss2` 等运行依赖失败；以后优先在容器或虚拟环境中跑全量测试。
 
+## 本轮新增文档
+
+- `docs/ai-drama-product-review.md`：产品经理视角的开源库取舍、行业落地和改进建议。
+- `docs/ai-drama-test-analysis.md`：测试工程师视角的用例矩阵、边界用例和发现问题。
+- `docs/ai-drama-architecture-actions.md`：架构/工程视角的修复记录和后续优化方向。
+
 ## 下一步建议
 
 1. 执行 `make up`，确认容器能启动。
 2. 创建 3 个 60-90 秒题材样片，优先验证角色一致性和镜头废片率。
 3. 把抽卡结果记录成镜头级台账：prompt、模型、参考图、seed/参数、成本、人工评分、是否可用。
 4. 若 LumenX 在非技术同事使用上阻力明显，再并行评估 LocalMiniDrama 作为桌面备选。
-5. 后续可把 `external/lumenx` 的 model catalog/onboarding 更新有选择地同步进本项目。
+5. 后续可把 `external/open-source-repos/lumenx` 的 model catalog/onboarding 更新有选择地同步进本项目。
