@@ -21,6 +21,12 @@
 
 ---
 
+## AIDrama 工作区说明
+
+本仓库是 AIDrama 的 LumenX Studio 工作区。项目级文档从 [docs/README.md](docs/README.md) 开始阅读；后续 AI 会话先看 [agent.md](agent.md) 和 [docs/task-progress.md](docs/task-progress.md)。
+
+---
+
 LumenX Studio 是一个**AI 短漫剧一站式生产平台**。它能够将小说文本转化为动态视频，打通了从剧本分析、角色定制、分镜绘制到视频合成的完整创作链路。
 
 LumenX Studio将 **资产提取—>风格定调—>资产生成—>分镜脚本构造->分镜图生成—>分镜视频生成** 的全链路SOP天然与该平台功能集成，在提供完善功能的基础上融入短漫剧行业Know-How，方便大家快速制作出质量过关的AI短片，大大提升生产效率。
