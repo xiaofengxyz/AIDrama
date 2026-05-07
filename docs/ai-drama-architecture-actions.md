@@ -17,6 +17,13 @@
 - 增加单测覆盖集合响应保护和 nginx API 前缀配置。
 - 本轮已取消 `external/` 常驻上游 clone，避免根目录和 external 双工程配置混乱；后续只临时 clone 参考源。
 
+## 当前会话新增固化
+
+- `src/film_engine/models.py` 增加 `GenerationAttempt`、`ShotRun`、`GenerationLedger` 数据契约，把镜头级抽卡、QA、重试、prompt 指纹、输出、成本和耗时记录为可序列化台账。
+- `src/film_engine/ledger.py` 增加 `GenerationLedgerRecorder`，作为独立 recorder 接入 Film Core，不绑定 DashScope、Kling、Vidu 或任何具体视频 runtime。
+- `src/film_engine/orchestrator.py` 在每次 runtime attempt 后写入台账，并把台账 summary 放进 `FilmEngineRun.metadata["generation_ledger"]`，方便后续 UI、队列和成本看板读取。
+- `tests/test_film_engine_core.py` 增加台账回归，覆盖正常成功、失败后重试、人工评分/标签/备注三类关键路径。
+
 ## 后续架构优化建议
 
 ### 模型接入
@@ -29,7 +36,7 @@
 
 - 系列级资产库应成为主数据：角色、场景、道具、服装、世界观、禁用设定都先落在系列层。
 - 单集只保存引用和必要覆盖，减少重复生成和角色漂移。
-- 镜头级台账建议独立为 `shot_runs` 或 `generation_runs`，不要塞进视频任务的临时字段里。
+- 镜头级台账已在 Film Core 中独立为 `GenerationLedger`，后续接入应用层时继续避免塞进视频任务临时字段。
 
 ### 可靠性
 

@@ -6,6 +6,7 @@ queues, real video runtimes, and visual QA systems.
 """
 
 from .director_dsl import DirectorDSLParser
+from .ledger import GenerationLedgerRecorder
 from .models import (
     CharacterAsset,
     CharacterBible,
@@ -15,6 +16,8 @@ from .models import (
     DirectorShot,
     FilmEngineRun,
     FilmState,
+    GenerationAttempt,
+    GenerationLedger,
     PromptCompileRequest,
     QAReport,
     RetryPolicy,
@@ -23,6 +26,7 @@ from .models import (
     RuntimeResult,
     SceneAsset,
     SceneBible,
+    ShotRun,
     ShotGraph,
     ShotTransition,
 )
@@ -49,6 +53,9 @@ __all__ = [
     "FilmEngineRun",
     "FilmState",
     "FilmStateEngine",
+    "GenerationAttempt",
+    "GenerationLedger",
+    "GenerationLedgerRecorder",
     "PromptCompileRequest",
     "PromptCompiler",
     "QAEngine",
@@ -62,6 +69,7 @@ __all__ = [
     "SceneAsset",
     "SceneBible",
     "SceneRegistry",
+    "ShotRun",
     "ShotGraph",
     "ShotGraphBuilder",
     "ShotTransition",

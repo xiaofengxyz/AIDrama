@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import List
 
+from .ledger import GenerationLedgerRecorder
 from .models import (
     CharacterAsset,
     DirectorProgram,
@@ -35,6 +36,7 @@ class FilmEngine:
         qa_engine: QAEngine | None = None,
         retry_engine: RetryEngine | None = None,
         state_engine: FilmStateEngine | None = None,
+        ledger_recorder: GenerationLedgerRecorder | None = None,
     ):
         self.character_registry = character_registry or CharacterRegistry()
         self.scene_registry = scene_registry or SceneRegistry()
@@ -43,6 +45,7 @@ class FilmEngine:
         self.qa_engine = qa_engine or QAEngine()
         self.retry_engine = retry_engine or RetryEngine()
         self.state_engine = state_engine or FilmStateEngine()
+        self.ledger_recorder = ledger_recorder
         self.graph_builder = ShotGraphBuilder()
 
     def run(
@@ -65,6 +68,9 @@ class FilmEngine:
 
         runtime_results: List[RuntimeResult] = []
         qa_reports: List[QAReport] = []
+        ledger_recorder = self.ledger_recorder or GenerationLedgerRecorder.for_sequence(
+            graph.sequence_id
+        )
 
         for shot in graph.shots:
             characters = self._resolve_characters(program.characters, shot.target)
@@ -98,6 +104,14 @@ class FilmEngine:
                 qa_reports.append(report)
 
                 decision = self.retry_engine.decide(report, request, policy)
+                ledger_recorder.record_attempt(
+                    request,
+                    result,
+                    report,
+                    decision,
+                    scene_id=program.scene.id,
+                    character_ids=[character.id for character in characters],
+                )
                 if decision.action == "accept":
                     self.state_engine.apply_success(
                         program.scene,
@@ -115,11 +129,13 @@ class FilmEngine:
             graph=graph,
             runtime_results=runtime_results,
             qa_reports=qa_reports,
+            generation_ledger=ledger_recorder.ledger,
             final_state=self.state_engine.state,
             metadata={
                 "backend": backend.value,
                 "runtime_attempts": len(runtime_results),
                 "accepted_shots": len(self.state_engine.state.timeline),
+                "generation_ledger": ledger_recorder.summary(),
             },
         )
 

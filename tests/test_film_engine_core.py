@@ -7,6 +7,7 @@ from src.film_engine import (
     CharacterRegistry,
     DirectorDSLParser,
     FilmEngine,
+    GenerationLedgerRecorder,
     RetryPolicy,
     RuntimeBackend,
     RuntimeResult,
@@ -128,6 +129,13 @@ def test_film_engine_runs_all_core_phases():
     assert all(report.passed for report in run.qa_reports)
     assert run.final_state.active_scene_id == "dark_corridor"
     assert len(run.final_state.timeline) == 4
+    assert run.generation_ledger is not None
+    assert run.generation_ledger.summary()["accepted_shots"] == 4
+    assert run.generation_ledger.summary()["total_attempts"] == 4
+    assert run.generation_ledger.shot_runs["shot_001"].selected_output_uri
+    assert len(
+        run.generation_ledger.shot_runs["shot_001"].attempts[0].prompt_fingerprint
+    ) == 16
     assert "shot:" in run.runtime_results[0].metadata["prompt"]
     assert "characters:" in run.runtime_results[0].metadata["prompt"]
 
@@ -195,3 +203,49 @@ shots:
     assert run.runtime_results[1].metadata["attempt"] == 2
     assert "repair pass:" in run.runtime_results[1].metadata["prompt"]
     assert len(run.final_state.timeline) == 1
+    assert run.generation_ledger is not None
+    shot_run = run.generation_ledger.shot_runs["shot_001"]
+    assert shot_run.status == "accepted"
+    assert len(shot_run.attempts) == 2
+    assert [attempt.decision_action for attempt in shot_run.attempts] == [
+        "retry",
+        "accept",
+    ]
+    assert run.metadata["generation_ledger"]["retry_attempts"] == 1
+
+
+def test_generation_ledger_supports_manual_review_metadata():
+    program = DirectorDSLParser().parse_yaml(
+        """
+scene:
+  id: review_lab
+  location: review_lab
+shots:
+  - id: shot_001
+    action: heroine notices the door opening
+"""
+    )
+    recorder = GenerationLedgerRecorder.for_sequence("review_sequence")
+
+    run = FilmEngine(ledger_recorder=recorder).run(program)
+    reviewed = recorder.mark_manual_review(
+        "shot_001",
+        manual_score=0.91,
+        selected_attempt=1,
+        tags=["usable", "needs_color_grade"],
+        notes=["Keep this candidate for rough cut."],
+    )
+
+    assert run.generation_ledger is not None
+    assert run.generation_ledger.sequence_id == "review_sequence"
+    assert reviewed.manual_score == 0.91
+    assert reviewed.selected_attempt == 1
+    assert reviewed.tags == ["needs_color_grade", "usable"]
+    assert reviewed.notes == ["Keep this candidate for rough cut."]
+    assert recorder.summary()["selected_outputs"]["shot_001"].startswith("dry-run://")
+
+    with pytest.raises(ValueError, match="manual_score"):
+        recorder.mark_manual_review("shot_001", manual_score=1.5)
+
+    with pytest.raises(ValueError, match="Unknown attempt"):
+        recorder.mark_manual_review("shot_001", selected_attempt=99)

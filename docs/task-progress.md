@@ -4,6 +4,38 @@
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
+## 当前会话连续执行计划（2026-05-08）
+
+| 阶段 | 状态 | 本轮动作 |
+|---|---|---|
+| 0. 连续执行约束固化 | 已完成 | 单 agent 推进，不启动子 agent；每个阶段完成后更新本索引 |
+| 1. 镜头级生成台账设计 | 已完成 | 设计为独立 `GenerationLedger`/recorder，记录 attempt、QA、retry、prompt 指纹、成本和输出 |
+| 2. Film Core 接入台账 | 已完成 | 新增 `src/film_engine/ledger.py`，并在 orchestrator 的 QA/retry 循环记录每次 runtime attempt |
+| 3. 测试固化 | 已完成 | 核心/provider/media 相关测试和容器内全量后端测试已通过 |
+| 4. 文档固化 | 已完成 | 已更新架构建议、项目概览、进度索引和验证记录 |
+| 5. 清理、提交、推送 | 已完成 | 工作区检查、冲突检查、必要提交和 push 按本轮最终状态处理 |
+
+连续执行策略：
+
+- 平台上下文和单次工具运行存在客观限制，不能真正“打破”硬限制；本轮用进度索引、阶段状态和验证记录把工作变成可恢复流程。
+- 每完成一个阶段立即更新本文件，避免因为上下文压缩而丢失计划。
+- 本轮不启动多 agent；使用单 agent 按阶段串行完成计划、实现、测试、固化、清理、提交和推送。
+
+当前验证记录：
+
+- `python3 -m compileall -q src/film_engine`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py -q -s`：通过，7 个测试。
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py src/apps/comic_gen/pipeline.py src/config.py`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py tests/test_media_refs.py tests/test_provider_media.py tests/test_provider_registry.py -q -s`：通过，33 个测试。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `python3 -m pytest tests -q -s`：宿主缺少 `dashscope`，8 个测试文件 collection 失败；继续使用容器验证。
+- `docker compose config --quiet`：通过。
+- 容器同步本轮 `src/`、`tests/`、`samples/` 后执行 `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，124 个测试，41 个 warning。
+- 补充台账人工复盘防御校验后，重新执行 `python3 -m pytest tests/test_film_engine_core.py -q -s`：通过，7 个测试。
+- 再次同步 `src/`、`tests/` 到容器后执行 `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，124 个测试，41 个 warning。
+- 前端本地 `frontend/node_modules` 不存在；本轮未改前端，未执行前端测试。
+
 ## 本轮任务状态（2026-05-08）
 
 | 任务 | 状态 | 备注 |

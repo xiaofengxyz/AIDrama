@@ -201,6 +201,85 @@ class RetryDecision(BaseModel):
     repair_notes: List[str] = Field(default_factory=list)
 
 
+class GenerationAttempt(BaseModel):
+    attempt_id: str
+    shot_id: str
+    attempt: int = Field(1, ge=1)
+    backend: RuntimeBackend
+    status: str
+    output_uri: Optional[str] = None
+    seed: Optional[int] = None
+    prompt_fingerprint: str
+    prompt: str = ""
+    negative_prompt: str = ""
+    repair_notes: List[str] = Field(default_factory=list)
+    qa_score: float = Field(0.0, ge=0.0, le=1.0)
+    qa_passed: bool = False
+    qa_findings: List[QAFinding] = Field(default_factory=list)
+    decision_action: str = "unknown"
+    decision_reason: str = ""
+    cost_estimate: float = 0.0
+    elapsed_seconds: float = 0.0
+    request_metadata: Dict[str, Any] = Field(default_factory=dict)
+    runtime_metadata: Dict[str, Any] = Field(default_factory=dict)
+    qa_metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: float = Field(default_factory=time.time)
+
+
+class ShotRun(BaseModel):
+    shot_id: str
+    scene_id: Optional[str] = None
+    character_ids: List[str] = Field(default_factory=list)
+    status: str = "pending"
+    attempts: List[GenerationAttempt] = Field(default_factory=list)
+    selected_attempt: Optional[int] = None
+    selected_output_uri: Optional[str] = None
+    manual_score: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    tags: List[str] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+    total_cost_estimate: float = 0.0
+    total_elapsed_seconds: float = 0.0
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+
+class GenerationLedger(BaseModel):
+    sequence_id: str = "sequence_default"
+    shot_runs: Dict[str, ShotRun] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+    def summary(self) -> Dict[str, Any]:
+        runs = list(self.shot_runs.values())
+        attempts = [attempt for run in runs for attempt in run.attempts]
+        accepted = [run for run in runs if run.status == "accepted"]
+        failed = [run for run in runs if run.status == "failed"]
+        scores = [attempt.qa_score for attempt in attempts]
+        return {
+            "sequence_id": self.sequence_id,
+            "total_shots": len(runs),
+            "accepted_shots": len(accepted),
+            "failed_shots": len(failed),
+            "total_attempts": len(attempts),
+            "retry_attempts": max(len(attempts) - len(runs), 0),
+            "total_cost_estimate": round(
+                sum(run.total_cost_estimate for run in runs),
+                6,
+            ),
+            "total_elapsed_seconds": round(
+                sum(run.total_elapsed_seconds for run in runs),
+                6,
+            ),
+            "average_qa_score": round(sum(scores) / len(scores), 6) if scores else 0.0,
+            "selected_outputs": {
+                run.shot_id: run.selected_output_uri
+                for run in runs
+                if run.selected_output_uri
+            },
+        }
+
+
 class FilmState(BaseModel):
     active_scene_id: Optional[str] = None
     character_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
@@ -214,5 +293,6 @@ class FilmEngineRun(BaseModel):
     graph: ShotGraph
     runtime_results: List[RuntimeResult] = Field(default_factory=list)
     qa_reports: List[QAReport] = Field(default_factory=list)
+    generation_ledger: Optional[GenerationLedger] = None
     final_state: FilmState
     metadata: Dict[str, Any] = Field(default_factory=dict)
