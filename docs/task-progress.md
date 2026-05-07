@@ -16,7 +16,7 @@
 | 4. 批量 runner | 已完成 | 增加单 agent/单进程 deterministic runner，支持优先级、错误隔离、QA/Retry/ledger 汇总 | 新增核心测试覆盖成功批次、失败隔离、优先级/上限 |
 | 5. 文档固化 | 已完成 | 更新项目概览、架构动作和本进度索引；补 Batch Production Skill/Test/Freeze/Sample/Benchmark | 文档说明新增能力和验证记录 |
 | 6. 测试与运行 | 已完成 | 跑核心/后端/前端和容器可用验证，并启动项目 | 测试输出和服务 HTTP 检查已写回本索引 |
-| 7. 清理提交推送 | 进行中 | 检查 diff、冲突、工作区，提交并尝试 push | `git diff --check`、`git ls-files -u`、`git status`、`git push` |
+| 7. 清理提交推送 | 已完成 | 检查 diff、冲突、工作区，提交并 push | `git diff --check`、`git ls-files -u`、`git status`、`git push` |
 
 本轮 review 结论：
 
@@ -39,6 +39,10 @@
 - `curl -sS http://localhost:3014/projects/`：HTTP 200，返回 `[]`。
 - `curl -sS http://localhost:3014/series`：HTTP 200，返回 `[]`。
 - `curl -I http://localhost:17177/docs`：HTTP 200。
+- `git diff --check` / `git diff --cached --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Add film engine batch production runner"`：已创建提交 `3b6ae24b`。
+- `git push`：已推送 `main`，`49aff29f..3b6ae24b`。
 
 ## 当前会话连续执行计划（2026-05-08）
 
