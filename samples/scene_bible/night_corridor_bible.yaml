@@ -1,0 +1,22 @@
+scene_bible:
+  id: suspense_corridor_bible
+  version: v1
+  scenes:
+    - id: dark_corridor
+      location: dark_corridor
+      mood: suspense
+      lighting: low_key
+      weather: still_air
+      tone: cold_blue
+      camera_style: handheld_subtle
+      time_of_day: night
+      reference_images:
+        - refs/dark_corridor.png
+      continuity_notes:
+        - keep blue low-key light direction stable
+        - maintain damp floor reflections
+  continuity_locks:
+    dark_corridor:
+      lighting: low_key
+      tone: cold_blue
+      time_of_day: night

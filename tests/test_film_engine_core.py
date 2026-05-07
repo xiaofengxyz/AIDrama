@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from src.film_engine import (
     CharacterAsset,
     CharacterRegistry,
@@ -41,6 +43,53 @@ def test_registries_load_existing_samples():
 
     assert characters.require("heroine_001").outfits == ["school_uniform"]
     assert scenes.require("cinematic_night_street_v1").lighting == "low_key_blue"
+
+
+def test_bibles_seed_registries_and_film_state_locks():
+    program = DirectorDSLParser().parse_file(
+        PROJECT_ROOT / "samples/shot_graph/suspense_sequence.yaml"
+    )
+    characters = CharacterRegistry.from_bible_file(
+        PROJECT_ROOT / "samples/character_bible/heroine_bible.yaml"
+    )
+    scenes = SceneRegistry.from_bible_file(
+        PROJECT_ROOT / "samples/scene_bible/night_corridor_bible.yaml"
+    )
+
+    run = FilmEngine(character_registry=characters, scene_registry=scenes).run(program)
+
+    heroine = characters.require("heroine_001")
+    assert heroine.hairstyle == "black_long"
+    assert characters.bible_ids == ["heroine_series_bible"]
+    assert scenes.bible_ids == ["suspense_corridor_bible"]
+    assert run.final_state.continuity_locks["character_bible"]["heroine_001"][
+        "outfit"
+    ] == "school_uniform"
+    assert run.final_state.continuity_locks["scene_bible"]["dark_corridor"][
+        "tone"
+    ] == "cold_blue"
+    assert "continuity:" in run.runtime_results[0].metadata["prompt"]
+    assert "hairstyle=black_long" in run.runtime_results[0].metadata["prompt"]
+
+
+def test_shot_graph_rejects_cycles():
+    program = DirectorDSLParser().parse_yaml(
+        """
+scene:
+  id: cycle_lab
+shots:
+  - id: shot_001
+  - id: shot_002
+transitions:
+  - from: shot_001
+    to: shot_002
+  - from: shot_002
+    to: shot_001
+"""
+    )
+
+    with pytest.raises(ValueError, match="cycle"):
+        ShotGraphBuilder().build(program)
 
 
 def test_film_engine_runs_all_core_phases():

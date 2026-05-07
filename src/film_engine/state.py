@@ -3,7 +3,15 @@ from __future__ import annotations
 import time
 from typing import Any, Dict, Iterable
 
-from .models import CharacterAsset, DirectorScene, DirectorShot, FilmState, QAReport, RuntimeResult, SceneAsset
+from .models import (
+    CharacterAsset,
+    DirectorScene,
+    DirectorShot,
+    FilmState,
+    QAReport,
+    RuntimeResult,
+    SceneAsset,
+)
 
 
 class FilmStateEngine:
@@ -19,10 +27,27 @@ class FilmStateEngine:
                 {
                     "name": character.name or character.id,
                     "outfits": list(character.outfits),
+                    "current_outfit": character.current_outfit,
+                    "hairstyle": character.hairstyle,
                     "locked_traits": list(character.locked_traits),
+                    "continuity_notes": list(character.continuity_notes),
                     "last_seen_shot": None,
                 },
             )
+            if character.locked_traits or character.current_outfit or character.hairstyle:
+                character_locks = self.state.continuity_locks.setdefault("characters", {})
+                character_locks.setdefault(character.id, {})
+                character_locks[character.id].update(
+                    {
+                        key: value
+                        for key, value in {
+                            "locked_traits": list(character.locked_traits),
+                            "current_outfit": character.current_outfit,
+                            "hairstyle": character.hairstyle,
+                        }.items()
+                        if value
+                    }
+                )
         self._touch()
 
     def register_scene(self, scene: SceneAsset | DirectorScene) -> None:
@@ -33,8 +58,28 @@ class FilmStateEngine:
                 "mood": getattr(scene, "mood", ""),
                 "lighting": getattr(scene, "lighting", None),
                 "weather": getattr(scene, "weather", None),
+                "tone": getattr(scene, "tone", None),
+                "time_of_day": getattr(scene, "time_of_day", None),
+                "continuity_notes": list(getattr(scene, "continuity_notes", []) or []),
             },
         )
+        scene_locks = {
+            key: value
+            for key, value in {
+                "lighting": getattr(scene, "lighting", None),
+                "weather": getattr(scene, "weather", None),
+                "tone": getattr(scene, "tone", None),
+                "time_of_day": getattr(scene, "time_of_day", None),
+            }.items()
+            if value
+        }
+        if scene_locks:
+            self.state.continuity_locks.setdefault("scenes", {}).setdefault(scene.id, {})
+            self.state.continuity_locks["scenes"][scene.id].update(scene_locks)
+        self._touch()
+
+    def apply_continuity_locks(self, locks: Dict[str, Any]) -> None:
+        self._deep_merge(self.state.continuity_locks, locks)
         self._touch()
 
     def snapshot(self) -> Dict[str, Any]:
@@ -56,6 +101,8 @@ class FilmStateEngine:
                 {
                     "name": character.name or character.id,
                     "outfits": list(character.outfits),
+                    "current_outfit": character.current_outfit,
+                    "hairstyle": character.hairstyle,
                     "last_seen_shot": shot.id,
                     "last_emotion": shot.emotion,
                 }
@@ -74,3 +121,10 @@ class FilmStateEngine:
 
     def _touch(self) -> None:
         self.state.updated_at = time.time()
+
+    def _deep_merge(self, target: Dict[str, Any], source: Dict[str, Any]) -> None:
+        for key, value in source.items():
+            if isinstance(value, dict) and isinstance(target.get(key), dict):
+                self._deep_merge(target[key], value)
+            else:
+                target[key] = value

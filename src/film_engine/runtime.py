@@ -20,7 +20,10 @@ class DryRunRuntimeAdapter:
 
     def generate(self, request: RuntimeRequest) -> RuntimeResult:
         started_at = time.time()
-        output_uri = f"dry-run://{request.backend.value}/{request.shot_id}/attempt-{request.attempt}"
+        output_uri = (
+            f"dry-run://{request.backend.value}/{request.shot_id}"
+            f"/attempt-{request.attempt}"
+        )
         return RuntimeResult(
             backend=request.backend,
             shot_id=request.shot_id,

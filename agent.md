@@ -19,7 +19,9 @@
 
 ## 当前项目选择
 
-主基座：LumenX Studio
+主平台基座（最终架构）：Jellyfish
+
+当前可运行兼容工作台：LumenX Studio
 
 本项目已适配：
 
@@ -28,6 +30,8 @@
 - 后端端口 `17177`
 - `scripts/bootstrap_env.sh` 从 `Doc/accounts` 生成 `.env.local`
 - DashScope-first provider 路由
+
+说明：Starter Kit 明确把 Jellyfish 定为 AI Film Engine 的主平台基座。当前仓库仍保留 LumenX 可运行代码，是为了不中断本地试制、测试和迁移验证；后续架构判断不得再把 LumenX 写成最终主基座。
 
 ## 常用命令
 

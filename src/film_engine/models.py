@@ -84,11 +84,14 @@ class CharacterAsset(BaseModel):
     description: str = ""
     base_model: Optional[str] = None
     lora: Optional[str] = None
+    hairstyle: Optional[str] = None
+    current_outfit: Optional[str] = None
     embeddings: List[str] = Field(default_factory=list)
     outfits: List[str] = Field(default_factory=list)
     voices: List[str] = Field(default_factory=list)
     reference_images: List[str] = Field(default_factory=list)
     locked_traits: List[str] = Field(default_factory=list)
+    continuity_notes: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
@@ -100,7 +103,25 @@ class SceneAsset(BaseModel):
     weather: Optional[str] = None
     tone: Optional[str] = None
     camera_style: Optional[str] = None
+    time_of_day: Optional[str] = None
     reference_images: List[str] = Field(default_factory=list)
+    continuity_notes: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CharacterBible(BaseModel):
+    id: str = "character_bible"
+    version: str = "v1"
+    characters: List[CharacterAsset] = Field(default_factory=list)
+    continuity_locks: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class SceneBible(BaseModel):
+    id: str = "scene_bible"
+    version: str = "v1"
+    scenes: List[SceneAsset] = Field(default_factory=list)
+    continuity_locks: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 

@@ -4,16 +4,18 @@
 
 ## 结论
 
-推荐主基座：`LumenX Studio`。
+最终主平台基座：`Jellyfish`。
+
+当前可运行兼容工作台：`LumenX Studio`。它用于本仓库现阶段本地试制、DashScope/Wanx 验证和迁移期回归，不再作为最终架构主基座。
 
 推荐备选：`LocalMiniDrama`。如果后续希望普通运营同事在 Windows 桌面上更轻量地使用，优先回看它。
 
-本轮补充结论：`superpowers-zh` 是 AI 编程 skills，不是漫剧生产基座；`Toonflow-app` 强但复杂度更高；`BigBanana-AI-Director` 的流程理念值得借鉴但商业使用受限；`huobao-drama` 热度高但平台化和授权边界仍需确认。详见 `docs/ai-drama-product-review.md`。
+本轮修正结论：Starter Kit 已明确 `Jellyfish -> 主平台基座`。此前把 LumenX 写为主基座，是基于当前仓库已有可运行代码和小团队启动成本的阶段性分析；这不是最终架构结论。`superpowers-zh` 是 AI 编程 skills，不是漫剧生产基座；`Toonflow-app` 强但复杂度更高；`BigBanana-AI-Director` 的流程理念值得借鉴但商业使用受限；`huobao-drama` 热度高但平台化和授权边界仍需确认。详见 `docs/ai-drama-product-review.md`。
 
 暂不把高 star 项目作为主基座：
 
 - `huobao-drama`：star 很高，TypeScript 全栈也完整，但 root 缺少明确 LICENSE 文件，且 Nuxt + Hono + Mastra + SQLite 的 Agent 平台化结构比当前试制团队需要的更重。
-- `Toonflow-app`：star 和提交数很高，Apache-2.0 许可也友好，但无限画布、三层 Agent、可编程供应商系统更像重型创作系统，学习和改造成本高于 LumenX。
+- `Toonflow-app`：star 和提交数很高，Apache-2.0 许可也友好，但无限画布、三层 Agent、可编程供应商系统更像重型创作系统；在本项目中更适合作为 Storyboard UI 与 Agent 组织方式参考。
 - `BigBanana-AI-Director`：产品理念很好，关键帧驱动也很值得借鉴，但公开仓库已经转为说明文档和 Docker 镜像入口，后续源码不再公开同步，且许可证限制商业使用。
 
 ## 为什么不是只选 star 多、更新频率高的
@@ -27,7 +29,7 @@ star 和提交频率只说明关注度和活跃度，不等于适合做二开基
 - 是否天然支持角色资产、参考图贯穿、分镜图、图生视频和候选选择。
 - 部署和维护是否足够轻，避免小团队被平台工程消耗掉。
 
-LumenX 的 star 不是最高，但它在“源码可控 + MIT + DashScope 友好 + 漫剧链路完整 + Docker 可跑 + 二开负担低”这几个维度综合最合适。
+Jellyfish 的价值不是 star 排名，而是 Starter Kit 给出的 Studio OS 定位：Workflow Core、Project System、Asset Management、Async Task System、Shot Management 和 Studio UI 都属于主平台能力。LumenX 的价值是当前仓库已经可运行、MIT、DashScope 友好、漫剧链路完整，适合作为迁移期兼容工作台和实现参考。
 
 ## 候选项目速览
 
@@ -35,7 +37,8 @@ GitHub star/fork/commit 数读取于 2026-05-06，后续会变化，以项目页
 
 | 项目 | 当前热度 | 定位 | 技术栈/结构 | 优点 | 风险/不足 | 建议 |
 |---|---:|---|---|---|---|---|
-| [LumenX](https://github.com/alibaba/lumenx) | 465 stars / 118 forks / 123 commits | AI 短漫剧一站式生产 | FastAPI + Next.js + DashScope/Wanx | 链路完整、MIT、DashScope 亲和、测试较多、本地优先 | 星标低于 huobao/Toonflow，官方仍在快速变化 | 主推荐 |
+| [Jellyfish](https://github.com/Forget-C/Jellyfish) | 未在本轮重新抓取 | AI Studio OS / Workflow Core | 以官方仓库为准 | 符合 Starter Kit 主平台定位：项目、资产、任务、镜头、工作流、Studio UI | 当前仓库尚未完成迁移接入 | 最终主平台基座 |
+| [LumenX](https://github.com/alibaba/lumenx) | 465 stars / 118 forks / 123 commits | AI 短漫剧一站式生产 | FastAPI + Next.js + DashScope/Wanx | 链路完整、MIT、DashScope 亲和、测试较多、本地优先 | 不是 Starter Kit 指定的最终主基座，官方仍在快速变化 | 当前兼容工作台/迁移参考 |
 | [LocalMiniDrama](https://github.com/xuanyustudio/LocalMiniDrama) | 321 stars / 79 forks / 185 commits | 本地短剧/漫剧助手 | Node.js + Vue + Electron + SQLite | MIT、本地化强、模型支持广、桌面友好、一键流水线清楚 | 更偏普通创作者桌面工具，深度二开架构不如 LumenX 清晰 | 强备选 |
 | [huobao-drama](https://github.com/chatfire-AI/huobao-drama) | 11.6k stars / 2.2k forks / 274 commits | AI 短剧生成平台 | Nuxt + Hono + Drizzle + Mastra + SQLite | 热度高、Agent 技能结构明确、TTS/FFmpeg/视频链路完整 | root 无明确 LICENSE 文件，平台化和 Agent 栈更重 | 观察，不做当前主基座 |
 | [Toonflow-app](https://github.com/HBAI-Ltd/Toonflow-app) | 7.7k stars / 1.3k forks / 838 commits | AI 短剧工厂 | TypeScript + Electron + 本地 Agent 记忆 | Apache-2.0、活跃、无限画布、供应商可编程 | 复杂度高，学习曲线和维护成本更大 | 观察/方法参考 |
@@ -52,7 +55,7 @@ GitHub star/fork/commit 数读取于 2026-05-06，后续会变化，以项目页
 
 ## 额外搜索观察
 
-额外搜索到 `TypeTale`、`VANTA`、`OpenMontage` 等视频/动画方向项目。它们有参考价值，但当前不替代 LumenX：
+额外搜索到 `TypeTale`、`VANTA`、`OpenMontage` 等视频/动画方向项目。它们有参考价值，但当前不替代 Jellyfish 主平台路线：
 
 - `TypeTale` 更偏本地 AIGC 视频软件与 ComfyUI 节点生态，适合观察模型接入和本地算力路线。
 - `VANTA` 和 `OpenMontage` 更偏通用视频引擎、Remotion 或素材剪辑工作流，不是 AI 漫剧从小说到角色资产再到分镜成片的直接基座。
@@ -73,8 +76,9 @@ GitHub star/fork/commit 数读取于 2026-05-06，后续会变化，以项目页
 
 ## 推荐落地方案
 
-1. 本项目继续用 LumenX 做主基座。
-2. `external/` 不再常驻上游 clone，避免重复配置干扰；需要对比官方上游时临时 clone 到 ignored 目录，按需人工移植。
-3. 第一阶段只跑 DashScope-only，不急着接满 Kling/Vidu/Seedance。
-4. 建立镜头级抽卡台账，记录 prompt、参考图、模型、成本、候选评分和最终采用原因。
-5. 如果非技术同事上手阻力大，再把 LocalMiniDrama 作为桌面工具备选进行一次短期试用。
+1. 本项目以 Jellyfish 作为最终主平台基座，Film Core 保持独立、可测试、可迁移。
+2. 当前 LumenX-compatible 工作台继续作为可运行入口，保证样片试制、DashScope-only 验证和迁移期回归不断档。
+3. `external/` 不再常驻上游 clone，避免重复配置干扰；需要对比 Jellyfish、LumenX 或其它上游时临时 clone 到 ignored 目录，按需人工移植。
+4. 第一阶段只跑 DashScope-only，不急着接满 Kling/Vidu/Seedance。
+5. 建立镜头级抽卡台账，记录 prompt、参考图、模型、成本、候选评分和最终采用原因。
+6. 如果非技术同事上手阻力大，再把 LocalMiniDrama 作为桌面工具备选进行一次短期试用。

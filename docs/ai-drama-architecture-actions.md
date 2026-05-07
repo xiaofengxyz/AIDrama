@@ -4,7 +4,9 @@
 
 ## 当前架构判断
 
-当前项目采用 LumenX 的 FastAPI + Next.js 架构，适合小团队先做内容生产闭环。前端负责工作台交互，后端负责项目数据、模型调用、媒体文件、视频合成；模型供应商通过 provider registry 分流，天然适合以后替换或新增模型。
+最终主平台基座采用 Starter Kit 指定的 Jellyfish。当前仓库仍运行 LumenX-compatible FastAPI + Next.js 工作台，适合小团队先做内容生产闭环和迁移期回归。前端负责工作台交互，后端负责项目数据、模型调用、媒体文件、视频合成；模型供应商通过 provider registry 分流，天然适合以后替换或新增模型。
+
+架构口径：Jellyfish 承载 Studio OS、Workflow Core、Project System、Asset Management、Async Task System、Shot Management 和 Studio UI；`src/film_engine/` 承载可迁移 Film Core；当前 LumenX-compatible 层只作为可运行入口和实现参考。
 
 ## 本轮修复
 

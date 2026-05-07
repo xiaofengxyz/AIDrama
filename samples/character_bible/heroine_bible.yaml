@@ -1,0 +1,28 @@
+character_bible:
+  id: heroine_series_bible
+  version: v1
+  characters:
+    - id: heroine_001
+      name: Lin Yue
+      description: determined college heroine with sharp eyes
+      base_model: flux
+      lora: heroine_v12.safetensors
+      hairstyle: black_long
+      current_outfit: school_uniform
+      outfits:
+        - school_uniform
+      reference_images:
+        - refs/heroine_full_body.png
+        - refs/heroine_face.png
+      locked_traits:
+        - face
+        - hairstyle
+        - outfit
+      continuity_notes:
+        - keep the same face shape across every shot
+        - preserve the school uniform collar and ribbon
+  continuity_locks:
+    heroine_001:
+      face: locked
+      hairstyle: black_long
+      outfit: school_uniform

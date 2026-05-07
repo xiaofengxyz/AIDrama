@@ -28,7 +28,11 @@ class ShotGraphBuilder:
                     "Transition references unknown shot: "
                     f"{transition.from_shot} -> {transition.to_shot}"
                 )
+            if transition.from_shot == transition.to_shot:
+                raise ValueError(f"Shot graph cannot self-loop on {transition.from_shot}")
             adjacency[transition.from_shot].append(transition.to_shot)
+
+        self._validate_acyclic(adjacency)
 
         return ShotGraph(
             sequence_id=program.sequence_id,
@@ -38,3 +42,21 @@ class ShotGraphBuilder:
             adjacency=adjacency,
             metadata={"graph_type": "directed_shot_sequence"},
         )
+
+    def _validate_acyclic(self, adjacency: Dict[str, List[str]]) -> None:
+        visiting = set()
+        visited = set()
+
+        def visit(shot_id: str) -> None:
+            if shot_id in visiting:
+                raise ValueError(f"Shot graph contains a cycle at {shot_id}")
+            if shot_id in visited:
+                return
+            visiting.add(shot_id)
+            for next_shot_id in adjacency.get(shot_id, []):
+                visit(next_shot_id)
+            visiting.remove(shot_id)
+            visited.add(shot_id)
+
+        for shot_id in adjacency:
+            visit(shot_id)

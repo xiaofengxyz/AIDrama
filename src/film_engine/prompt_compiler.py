@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Dict, Iterable, List
 
 from pydantic import BaseModel, Field
@@ -104,6 +105,7 @@ class PromptCompiler:
                 "lighting": lighting,
                 "weather": weather,
                 "tone": scene.tone or (asset.tone if asset else None),
+                "time_of_day": asset.time_of_day if asset else None,
             },
         )
 
@@ -116,8 +118,23 @@ class PromptCompiler:
                 [
                     character.name or character.id,
                     character.description,
+                    f"hairstyle={character.hairstyle}" if character.hairstyle else "",
+                    (
+                        f"current_outfit={character.current_outfit}"
+                        if character.current_outfit
+                        else ""
+                    ),
                     f"outfit={','.join(character.outfits)}" if character.outfits else "",
-                    f"locked={','.join(character.locked_traits)}" if character.locked_traits else "",
+                    (
+                        f"locked={','.join(character.locked_traits)}"
+                        if character.locked_traits
+                        else ""
+                    ),
+                    (
+                        f"continuity_notes={','.join(character.continuity_notes)}"
+                        if character.continuity_notes
+                        else ""
+                    ),
                 ]
             )
             values.append(" ".join(traits))
@@ -145,7 +162,9 @@ class PromptCompiler:
         locks = request.film_state.get("continuity_locks") or {}
         if not locks:
             return ""
-        lock_pairs = [f"{key}={value}" for key, value in sorted(locks.items())]
+        lock_pairs = [
+            f"{key}={self._stable_value(value)}" for key, value in sorted(locks.items())
+        ]
         return "continuity: " + ", ".join(lock_pairs)
 
     def _repair_segment(self, repair_notes: List[str]) -> str:
@@ -161,3 +180,8 @@ class PromptCompiler:
 
     def _compact(self, values: Iterable[str]) -> List[str]:
         return [value.strip() for value in values if value and value.strip()]
+
+    def _stable_value(self, value: object) -> str:
+        if isinstance(value, (dict, list)):
+            return json.dumps(value, sort_keys=True, separators=(",", ":"))
+        return str(value)

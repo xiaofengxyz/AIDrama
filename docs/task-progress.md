@@ -1,29 +1,89 @@
 # 任务进度索引
 
-日期：2026-05-07
+日期：2026-05-08
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
-## 本轮任务状态
+## 本轮任务状态（2026-05-08）
 
 | 任务 | 状态 | 备注 |
 |---|---|---|
 | 先做计划再执行 | 已完成 | 本轮已建立计划，按单 agent 连续推进，不启动子 agent |
-| 查看 AGENTS/agent 指南 | 已完成 | 已读取 `AGENTS.md`、`agent.md` 和文档中心，确认工业 AI Film Engine 原则 |
-| 确认阶段边界 | 已完成 | 以 Starter Kit 固定顺序推进：Runtime、Director DSL、Shot Graph、Prompt Compiler、Character Registry、Scene Registry、QA Engine、Retry Engine、Film State Engine |
-| 对比分析 2026 开源研究报告 | 已完成 | 新增 `docs/ai-manjv-report-comparison-2026.md`，结论是保留 LumenX，吸收 huobao/Toonflow/Jellyfish 的方法 |
-| 清理根目录/external 配置混乱 | 已完成 | 已删除本地 ignored `external/` clone，文档改为根目录唯一可运行配置源 |
-| 落地 Film Core 最小闭环 | 已完成 | 新增 `src/film_engine/`，覆盖 Runtime、Director DSL、Shot Graph、Prompt Compiler、Registry、QA、Retry、Film State |
-| 验证、工作区清理、提交、push | 已完成 | 测试、构建、Compose 校验、换行归一化、工作区清理、提交和 push 已在本轮收束 |
+| 查看 AGENTS/agent 指南 | 已完成 | 已读取 `AGENTS.md`、`agent.md`、`docs/task-progress.md` 和文档中心 |
+| 校准主基座口径 | 已完成 | 已把文档调整为：Jellyfish 是主平台基座；LumenX 只作当前可运行参考/兼容工作台 |
+| 审计固定九阶段 | 已完成 | 九阶段已有最小闭环；缺口是 Character/Scene Bible、Film State continuity locks、Shot Graph 环形转场校验 |
+| 补齐阶段缺口 | 已完成 | 新增 Character/Scene Bible 数据契约与加载、Film State continuity locks、Prompt continuity 编译、Shot Graph 环校验 |
+| 验证、清理、冲突处理 | 已完成 | 核心/容器验证通过；宿主全量 pytest 因缺 `dashscope` SDK 无法收集，容器内全量后端测试通过 |
+| 提交并 push | 已完成 | 本轮必要修改已整理为提交并推送当前 `main` 分支 |
 
-## 本轮执行计划
+## 本轮执行计划（2026-05-08）
 
-1. 固化任务索引，确保每个节点都有状态记录。
-2. 对比 ChatGPT 研究报告、现有 `open-source-comparison` 与 Starter Kit，明确继续用 LumenX 还是切换/吸收其它项目。
-3. 清理配置混乱：根目录保留主工程运行配置，`external/` 仅保留忽略的只读参考源或直接移除陈旧 clone，不让外部项目配置参与构建。
-4. 按固定开发顺序实现 Film Core 最小闭环：Runtime 抽象、Director DSL、Shot Graph、Prompt Compiler、Character/Scene Registry、QA、Retry、Film State。
-5. 补 Python 测试和样例读取验证，确认核心阶段可以串起来。
-6. 归一化换行与工作区状态，解决冲突，提交并 push 必要修改。
+1. 固化任务进度索引，确认每个节点都能跨会话恢复。
+2. 修正主基座口径：最终主平台基座是 `Jellyfish`；`LumenX` 是当前仓库已有的可运行实现参考，不再作为架构主基座。
+3. 审计 `src/film_engine/` 与测试，逐项核验固定九阶段是否真实可运行。
+4. 补齐缺口：保持 graph-based workflow、ECS-inspired entities、runtime adapter、prompt compiler、QA/retry/state 的模块边界。
+5. 运行必要测试和静态验证，清理工作区并确认无冲突。
+6. 提交并 push 必要修改。
+
+## 基座口径修正记录
+
+- Starter Kit 明确写明 `Jellyfish -> 主平台基座`，并把 `huobao-drama`、`director_ai`、`BigBanana`、`waoowaoo`、`Toonflow-app`、`StoryDiffusion` 分别定位为运行时、导演 DSL、电影规则、编排、Storyboard UI、角色一致性参考层。
+- 之前文档把 `LumenX Studio` 写成主基座，是基于当前仓库已可运行的 LumenX 代码和小团队启动成本做出的阶段性分析，不是 Starter Kit 的最终主基座结论。
+- 本轮以后以 Starter Kit 为准：`Jellyfish` 是 AI Film Engine 的主平台基座；`LumenX` 只保留为当前仓库内可运行的兼容工作台/迁移参考，不能覆盖最终架构口径。
+
+## 当前技术选择（2026-05-08）
+
+主平台基座：Jellyfish
+
+当前可运行兼容工作台：LumenX Studio
+
+分层定位：
+
+- `Jellyfish`：Studio OS、Workflow Core、Project System、Asset Management、Async Task System、Shot Management、Studio UI。
+- `huobao-drama`：Runtime Layer 参考，包括 render pipeline、FFmpeg orchestration、subtitle/TTS/stitching。
+- `director_ai`：Director DSL Layer 参考，包括 shot abstraction、camera grammar、scene timeline、transition metadata。
+- `BigBanana`：Cinematic Rule Layer 参考，包括 emotion-camera mapping、pacing rules、composition heuristics。
+- `waoowaoo`：Orchestration Layer 参考。
+- `Toonflow-app`：Storyboard UI 与 Agent/skill 组织方式参考。
+- `StoryDiffusion`：Character Consistency 参考。
+
+必须自研：
+
+- Film State Engine
+- QA Engine
+- Retry Engine
+- Prompt Compiler
+- Character Bible / Character Registry
+- Scene Bible / Scene Registry
+
+## 本轮九阶段落地索引（2026-05-08）
+
+| 阶段 | 状态 | 落地位置 |
+|---|---|---|
+| Runtime | 已完成 | `src/film_engine/runtime.py`：runtime adapter/router + deterministic dry-run adapter |
+| Director DSL | 已完成 | `src/film_engine/director_dsl.py`：YAML -> AST + schema validation |
+| Shot Graph | 已完成 | `src/film_engine/shot_graph.py`：directed shot sequence、transition validation、cycle/self-loop rejection |
+| Prompt Compiler | 已完成 | `src/film_engine/prompt_compiler.py`：Director DSL + character/scene/state/repair notes -> backend prompt |
+| Character Registry/Bible | 已完成 | `src/film_engine/models.py`、`registry.py`、`samples/character_bible/` |
+| Scene Registry/Bible | 已完成 | `src/film_engine/models.py`、`registry.py`、`samples/scene_bible/` |
+| QA Engine | 已完成 | `src/film_engine/qa.py`：structural QA report and failure schema |
+| Retry Engine | 已完成 | `src/film_engine/retry.py`：QA-driven repair/retry decision |
+| Film State Engine | 已完成 | `src/film_engine/state.py`：character/scene state, timeline, continuity locks |
+
+## 本轮验证记录（2026-05-08）
+
+- `python3 -m compileall -q src/film_engine`：通过。
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py src/apps/comic_gen/pipeline.py src/config.py`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py -q -s`：通过，6 个测试。
+- `python3 -m pytest tests/test_film_engine_core.py tests/test_media_refs.py tests/test_provider_media.py tests/test_provider_registry.py -q -s`：通过，32 个测试。
+- `docker compose config --quiet`：通过。
+- `python3 -m pytest tests -q -s`：宿主缺少 `dashscope`，8 个测试文件在 collection 阶段失败；改用容器验证。
+- 容器同步本轮源码、samples、tests 后执行 `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，123 个测试，41 个 warning。
+- 格式微调后重新执行 `docker compose exec -T backend python -m pytest -q -s /app/tests/test_film_engine_core.py`：通过，6 个测试。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+
+## 历史记录（2026-05-07，以下为上一轮记录，LumenX 主基座口径已被本轮修正）
 
 ## 本轮新增 Film Core
 
@@ -50,9 +110,9 @@
 - `docker compose config --quiet`：通过；Compose 现在使用可选 `.env.local`，无本地密钥时也能完成配置语法校验。
 - `python3 -m pytest tests -q -s`：宿主缺少 `dashscope`，8 个既有测试文件在 collection 阶段失败；本轮新增核心测试不依赖 DashScope，已单独通过。
 
-## 当前技术选择
+## 历史技术选择（已修正）
 
-主基座：LumenX Studio
+历史记录：上一轮曾把 LumenX Studio 写为主基座；该口径已被 2026-05-08 本轮修正为 Jellyfish 主平台基座、LumenX 兼容工作台。
 
 推荐原因：
 

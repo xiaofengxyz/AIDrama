@@ -4,9 +4,15 @@
 
 ## 结论
 
-本项目继续选择 `LumenX Studio` 做主基座，`LocalMiniDrama` 做桌面轻量备选。`huobao-drama`、`Toonflow-app`、`BigBanana-AI-Director` 都值得持续跟踪，但不适合作为当前 2-3 人试制团队的第一基座。
+本项目以 `Jellyfish` 做最终主平台基座，`LumenX Studio` 只保留为当前仓库可运行的兼容工作台和迁移参考，`LocalMiniDrama` 做桌面轻量备选。`huobao-drama`、`Toonflow-app`、`BigBanana-AI-Director` 都值得持续跟踪，但不替代 Starter Kit 指定的主平台口径。
 
-核心判断不是 star 最大，而是先把“低成本、可二开、可跑通、可控角色一致性、可逐步接新模型”的生产闭环稳定下来。
+核心判断不是 star 最大，而是先把“低成本、可二开、可跑通、可控角色一致性、可逐步接新模型”的生产闭环稳定下来，同时让 Film Core 从一开始就独立于具体 UI/runtime。
+
+## 为什么主平台改回 Jellyfish
+
+- Starter Kit 明确写明 `Jellyfish -> 主平台基座`，其定位覆盖 Studio OS、Workflow Core、Project System、Asset Management、Async Task System、Shot Management 和 Studio UI。
+- 此前文档把 LumenX 写成主基座，是基于当前仓库已有可运行 LumenX 代码做出的阶段性工程分析，不是 Starter Kit 的最终架构结论。
+- 本轮以后，Jellyfish 承担平台基座口径；LumenX 承担可运行工作台、实现参考和迁移期验证职责。
 
 ## 为什么不使用指定项目作为主基座
 
@@ -22,7 +28,7 @@
 - 优点是热度高、桌面端路线清晰、Agent/技能/本地模型/对象存储目录规划完整。
 - 当前不选它做第一基座的原因是复杂度更高：Agent 体系、桌面打包、内置 Web、运行时数据、技能、模型管理等模块会拉高学习和维护成本。
 - 对小团队而言，早期更需要快速试题材、控废片率、算单镜头成本，而不是先吃下一个重型桌面创作系统。
-- 建议：把它作为“普通运营同事桌面工具”和“Agent 生产组织方式”的参考，等 LumenX 跑通样片后再二次评估。
+- 建议：把它作为“普通运营同事桌面工具”和“Agent 生产组织方式”的参考，等 Jellyfish-oriented 工作台跑通样片后再二次评估。
 
 ### BigBanana-AI-Director
 
@@ -38,11 +44,11 @@
 - 对 2-3 人内容试制团队来说，先接入完整平台、用户体系、Agent 技能和数据库栈，容易把精力从“内容验证”转移到“平台维护”。
 - 建议：观察它的短剧产品信息架构和商业化包装，但当前不作为主基座。
 
-## 为什么继续选 LumenX
+## 为什么保留 LumenX-compatible 工作台
 
 - 源码完整，MIT 许可，适合商业试制和二开。
 - 工作流正好覆盖 AI 漫剧关键链路：资产提取、风格定调、资产生成、分镜图、分镜视频、拼接成片。
-- FastAPI + Next.js 结构清晰，当前项目已经基于它搭建，继续推进比换基座成本低。
+- FastAPI + Next.js 结构清晰，当前项目已经基于它搭建，保留它可以避免迁移期中断本地试制。
 - 天然接入 Qwen/Wanx，适合用 DashScope-only 先跑低成本样片。
 - 已有角色资产、三视图、头像、参考图、i2v/r2v、Batch Size 抽卡和最终候选选择的产品形态，和漫剧生产痛点吻合。
 - 后续可以通过 provider registry 保留 Kling、Vidu、PixVerse、Seedance 等模型扩展空间。

@@ -1,6 +1,6 @@
 # AIDrama Project Notes
 
-This project is configured as a LumenX Studio based AI motion-comic production workspace.
+This project is an AI Film Engine workspace. The target platform base is Jellyfish; the current repository still includes a runnable LumenX-compatible workbench for local production, verification, and migration.
 
 Recommended local path:
 
@@ -13,7 +13,7 @@ Then open:
 - Frontend: http://localhost:3014
 - Backend API: http://localhost:17177/docs
 
-Secrets are read from `Doc/accounts` and written to local `.env` by `scripts/bootstrap_env.sh`. Both `Doc/accounts` and `.env` are ignored by git.
+Secrets are read from `Doc/accounts` and written to local `.env.local` by `scripts/bootstrap_env.sh`. `Doc/accounts`, `.env.local`, and legacy `.env` are ignored by git.
 
 Read these project-specific docs first:
 

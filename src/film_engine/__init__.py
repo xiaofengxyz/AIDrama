@@ -8,6 +8,7 @@ queues, real video runtimes, and visual QA systems.
 from .director_dsl import DirectorDSLParser
 from .models import (
     CharacterAsset,
+    CharacterBible,
     CompiledPrompt,
     DirectorProgram,
     DirectorScene,
@@ -21,6 +22,7 @@ from .models import (
     RuntimeRequest,
     RuntimeResult,
     SceneAsset,
+    SceneBible,
     ShotGraph,
     ShotTransition,
 )
@@ -35,6 +37,7 @@ from .state import FilmStateEngine
 
 __all__ = [
     "CharacterAsset",
+    "CharacterBible",
     "CharacterRegistry",
     "CompiledPrompt",
     "DirectorDSLParser",
@@ -57,6 +60,7 @@ __all__ = [
     "RuntimeResult",
     "RuntimeRouter",
     "SceneAsset",
+    "SceneBible",
     "SceneRegistry",
     "ShotGraph",
     "ShotGraphBuilder",

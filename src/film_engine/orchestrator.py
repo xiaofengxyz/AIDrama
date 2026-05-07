@@ -54,6 +54,13 @@ class FilmEngine:
         policy = retry_policy or RetryPolicy()
         graph = self.graph_builder.build(program)
         scene_asset = self._resolve_scene_asset(program)
+        registry_locks = {}
+        if self.character_registry.continuity_locks:
+            registry_locks["character_bible"] = self.character_registry.continuity_locks
+        if self.scene_registry.continuity_locks:
+            registry_locks["scene_bible"] = self.scene_registry.continuity_locks
+        if registry_locks:
+            self.state_engine.apply_continuity_locks(registry_locks)
         self.state_engine.register_scene(scene_asset or program.scene)
 
         runtime_results: List[RuntimeResult] = []

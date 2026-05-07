@@ -4,7 +4,9 @@
 
 ## 当前选择
 
-本项目采用 `LumenX Studio` 作为 AI 漫剧工作台基座。它覆盖“剧本分析 -> 角色/场景/道具资产 -> 分镜 -> 分镜视频 -> 配音与合成”的完整链路，并且天然贴合 DashScope/Qwen/Wanx。
+本项目的最终主平台基座采用 `Jellyfish`。当前仓库仍保留 `LumenX Studio` 兼容工作台，因为它已经能覆盖“剧本分析 -> 角色/场景/道具资产 -> 分镜 -> 分镜视频 -> 配音与合成”的本地试制链路，并且天然贴合 DashScope/Qwen/Wanx。
+
+后续工程口径：Jellyfish 负责 Studio OS / Workflow Core / Project System / Asset Management / Async Task System / Shot Management / Studio UI；LumenX 只作为现阶段可运行参考、迁移验证入口和部分工作流实现来源。
 
 当前环境是 WSL Ubuntu 22.04，已有 Docker。推荐直接使用 Docker 启动，容器内会补齐 Python 3.11 与 FFmpeg，宿主机无需另外安装。
 
@@ -12,7 +14,7 @@
 
 本轮已清理 `external/` 下的上游 clone，避免根目录和 external 同时存在一套 Docker、前端、后端配置。当前根目录是唯一可运行工程。
 
-如果后续需要对比官方 LumenX，上游源码只能临时 clone 到 `external/` 这类忽略目录，用完保持只读参考，不参与构建、不提交、不作为主工程启动入口。
+如果后续需要对比 Jellyfish、官方 LumenX 或其它上游，上游源码只能临时 clone 到 `external/` 这类忽略目录，用完保持只读参考，不参与构建、不提交、不作为主工程启动入口。
 
 ## 端口
 
@@ -20,7 +22,7 @@
 - 后端：`http://localhost:17177`
 - API 文档：`http://localhost:17177/docs`
 
-这里避开常用 `3000`，把 LumenX 前端映射到 `3014`。
+这里避开常用 `3000`，把当前兼容工作台前端映射到 `3014`。
 
 ## 启动
 
