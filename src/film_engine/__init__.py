@@ -5,9 +5,13 @@ the project a small, testable Film Core that can later be wired into FastAPI,
 queues, real video runtimes, and visual QA systems.
 """
 
+from .batch import BatchProductionRunner
 from .director_dsl import DirectorDSLParser
 from .ledger import GenerationLedgerRecorder
 from .models import (
+    BatchProductionItem,
+    BatchProductionPlan,
+    BatchProductionRun,
     CharacterAsset,
     CharacterBible,
     CompiledPrompt,
@@ -40,6 +44,10 @@ from .shot_graph import ShotGraphBuilder
 from .state import FilmStateEngine
 
 __all__ = [
+    "BatchProductionItem",
+    "BatchProductionPlan",
+    "BatchProductionRun",
+    "BatchProductionRunner",
     "CharacterAsset",
     "CharacterBible",
     "CharacterRegistry",

@@ -4,6 +4,42 @@
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
+## 当前会话执行计划（2026-05-08，批量生产补齐）
+
+本轮继续按单 agent 串行推进，不启动子 agent。先 review 指定 Starter Kit、2026 开源研究报告、现有进度索引、`src/film_engine/`、启动脚本与测试基线，再执行下面计划。
+
+| 阶段 | 状态 | 计划动作 | 验收方式 |
+|---|---|---|---|
+| 1. 文档与代码复盘 | 已完成 | 复核九阶段 Film Core、Generation Ledger、Docker/Makefile 入口 | `python3 -m compileall -q src/film_engine` 与 `tests/test_film_engine_core.py` 已通过 |
+| 2. 缺口选择 | 已完成 | 对照目标“industrial batch production”，确认缺独立批次计划/runner/汇总层 | 在本索引记录缺口和实施计划 |
+| 3. 批量生产模型 | 已完成 | 增加 BatchProductionItem/Plan/Run 数据契约，不耦合具体 runtime | Pydantic 模型可序列化、可汇总 |
+| 4. 批量 runner | 已完成 | 增加单 agent/单进程 deterministic runner，支持优先级、错误隔离、QA/Retry/ledger 汇总 | 新增核心测试覆盖成功批次、失败隔离、优先级/上限 |
+| 5. 文档固化 | 已完成 | 更新项目概览、架构动作和本进度索引；补 Batch Production Skill/Test/Freeze/Sample/Benchmark | 文档说明新增能力和验证记录 |
+| 6. 测试与运行 | 已完成 | 跑核心/后端/前端和容器可用验证，并启动项目 | 测试输出和服务 HTTP 检查已写回本索引 |
+| 7. 清理提交推送 | 进行中 | 检查 diff、冲突、工作区，提交并尝试 push | `git diff --check`、`git ls-files -u`、`git status`、`git push` |
+
+本轮 review 结论：
+
+- Starter Kit 固定九阶段已经落在 `src/film_engine/`，上一轮补齐了 Character/Scene Bible、continuity locks、Shot Graph cycle check 和 Generation Ledger。
+- 研究报告强调小团队重点不是 Agent 数量，而是可复用内容流水线、角色资产系统、镜头 DSL、Reference workflow 和稳定批量生产。
+- 当前最值得补的工程缺口是 Film Core 级别的批量生产编排：多个 Director Program 可以被计划化执行，单条失败不拖垮整批，并产出可用于成本/QA/人工复盘的汇总。
+
+本轮新增验证记录：
+
+- `python3 -m compileall -q src/film_engine`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py -q -s`：通过，7 个测试。
+- `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py -q -s`：通过，11 个测试。
+- `python3 -m pytest tests -q -s`：宿主缺少 `dashscope`，8 个测试文件在 collection 阶段失败；继续用 Docker 验证。
+- `docker compose up -d --build`：通过，已重建并启动 `lumenx-backend` 和 `lumenx-frontend`。
+- 容器临时安装 `pytest` 后执行 `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，128 个测试，41 个 warning。
+- `docker run --rm -v /mnt/d/workplace/AIDrama/docker:/docker:ro -e NODE_ENV=test aidrama-frontend-builder npm run test`：通过，6 个测试文件、101 个测试。
+- `docker compose ps`：backend 与 frontend 均为 Up。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl -sS http://localhost:17177/config/info`：HTTP 200，返回 development config 状态。
+- `curl -sS http://localhost:3014/projects/`：HTTP 200，返回 `[]`。
+- `curl -sS http://localhost:3014/series`：HTTP 200，返回 `[]`。
+- `curl -I http://localhost:17177/docs`：HTTP 200。
+
 ## 当前会话连续执行计划（2026-05-08）
 
 | 阶段 | 状态 | 本轮动作 |

@@ -4,7 +4,7 @@ import time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class RuntimeBackend(str, Enum):
@@ -280,6 +280,45 @@ class GenerationLedger(BaseModel):
         }
 
 
+class BatchProductionItem(BaseModel):
+    item_id: str
+    program: DirectorProgram
+    backend: Optional[RuntimeBackend] = None
+    retry_policy: Optional[RetryPolicy] = None
+    priority: int = 100
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("item_id")
+    @classmethod
+    def validate_item_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("batch item_id cannot be empty")
+        return value
+
+
+class BatchProductionPlan(BaseModel):
+    id: str = "batch_default"
+    backend: RuntimeBackend = RuntimeBackend.DRY_RUN
+    retry_policy: RetryPolicy = Field(default_factory=RetryPolicy)
+    items: List[BatchProductionItem] = Field(default_factory=list)
+    continue_on_error: bool = True
+    max_items: Optional[int] = Field(default=None, ge=1)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_items(self) -> "BatchProductionPlan":
+        if not self.items:
+            raise ValueError("BatchProductionPlan requires at least one item")
+        item_ids = [item.item_id for item in self.items]
+        duplicate_ids = sorted(
+            {item_id for item_id in item_ids if item_ids.count(item_id) > 1}
+        )
+        if duplicate_ids:
+            raise ValueError(f"Duplicate batch item ids: {duplicate_ids}")
+        return self
+
+
 class FilmState(BaseModel):
     active_scene_id: Optional[str] = None
     character_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
@@ -296,3 +335,66 @@ class FilmEngineRun(BaseModel):
     generation_ledger: Optional[GenerationLedger] = None
     final_state: FilmState
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class BatchProductionRun(BaseModel):
+    plan_id: str
+    planned_item_count: int = 0
+    scheduled_item_count: int = 0
+    item_order: List[str] = Field(default_factory=list)
+    item_runs: Dict[str, FilmEngineRun] = Field(default_factory=dict)
+    errors: Dict[str, str] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    created_at: float = Field(default_factory=time.time)
+    updated_at: float = Field(default_factory=time.time)
+
+    def summary(self) -> Dict[str, Any]:
+        accepted_item_ids = []
+        failed_item_ids = set(self.errors)
+        selected_outputs: Dict[str, Dict[str, str]] = {}
+        scores = []
+        total_shots = 0
+        accepted_shots = 0
+        failed_shots = 0
+        total_attempts = 0
+        retry_attempts = 0
+        total_cost_estimate = 0.0
+        total_elapsed_seconds = 0.0
+
+        for item_id, run in self.item_runs.items():
+            total_shots += len(run.graph.shots)
+            scores.extend(report.score for report in run.qa_reports)
+            ledger_summary = run.generation_ledger.summary() if run.generation_ledger else {}
+            accepted_shots += int(ledger_summary.get("accepted_shots", 0))
+            failed_shots += int(ledger_summary.get("failed_shots", 0))
+            total_attempts += int(ledger_summary.get("total_attempts", 0))
+            retry_attempts += int(ledger_summary.get("retry_attempts", 0))
+            total_cost_estimate += float(ledger_summary.get("total_cost_estimate", 0.0))
+            total_elapsed_seconds += float(ledger_summary.get("total_elapsed_seconds", 0.0))
+            outputs = ledger_summary.get("selected_outputs") or {}
+            if outputs:
+                selected_outputs[item_id] = outputs
+            if ledger_summary.get("accepted_shots", 0) == len(run.graph.shots):
+                accepted_item_ids.append(item_id)
+            else:
+                failed_item_ids.add(item_id)
+
+        return {
+            "plan_id": self.plan_id,
+            "total_plan_items": self.planned_item_count,
+            "scheduled_items": self.scheduled_item_count,
+            "completed_items": len(self.item_runs),
+            "accepted_items": len(accepted_item_ids),
+            "failed_items": len(failed_item_ids),
+            "failed_item_ids": sorted(failed_item_ids),
+            "total_shots": total_shots,
+            "accepted_shots": accepted_shots,
+            "failed_shots": failed_shots,
+            "total_attempts": total_attempts,
+            "retry_attempts": retry_attempts,
+            "total_cost_estimate": round(total_cost_estimate, 6),
+            "total_elapsed_seconds": round(total_elapsed_seconds, 6),
+            "average_qa_score": round(sum(scores) / len(scores), 6) if scores else 0.0,
+            "selected_outputs": selected_outputs,
+            "item_order": list(self.item_order),
+        }

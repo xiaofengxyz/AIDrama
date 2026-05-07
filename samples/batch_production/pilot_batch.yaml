@@ -1,0 +1,59 @@
+id: suspense_pilot_batch
+backend: dry_run
+continue_on_error: true
+max_items: 2
+metadata:
+  purpose: validate low-cost suspense pilot sequences
+items:
+  - item_id: corridor_opening
+    priority: 10
+    tags:
+      - pilot
+      - suspense
+    program:
+      sequence_id: corridor_opening_v1
+      scene:
+        id: dark_corridor
+        location: dark_corridor
+        mood: suspense
+        lighting: low_key
+      characters:
+        - heroine_001
+      shots:
+        - id: shot_001
+          type: hallway_wide
+          movement: slow_dolly
+          duration: 4
+          emotion: nervous
+        - id: shot_002
+          type: closeup
+          target: heroine_001
+          movement: dolly_in
+          duration: 3
+          emotion: fear
+      transitions:
+        - from: shot_001
+          to: shot_002
+          type: suspense_cut
+
+  - item_id: door_reveal
+    priority: 20
+    tags:
+      - pilot
+      - reveal
+    program:
+      sequence_id: door_reveal_v1
+      scene:
+        id: dark_corridor
+        location: dark_corridor
+        mood: suspense
+        lighting: low_key
+      characters:
+        - heroine_001
+      shots:
+        - id: shot_001
+          type: over_shoulder
+          target: heroine_001
+          movement: handheld_subtle
+          duration: 4
+          emotion: alert

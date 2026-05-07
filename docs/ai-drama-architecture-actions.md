@@ -24,6 +24,12 @@
 - `src/film_engine/orchestrator.py` 在每次 runtime attempt 后写入台账，并把台账 summary 放进 `FilmEngineRun.metadata["generation_ledger"]`，方便后续 UI、队列和成本看板读取。
 - `tests/test_film_engine_core.py` 增加台账回归，覆盖正常成功、失败后重试、人工评分/标签/备注三类关键路径。
 
+## 本轮批量生产补齐
+
+- `src/film_engine/models.py` 增加 `BatchProductionItem`、`BatchProductionPlan`、`BatchProductionRun`，把多序列生产批次、优先级、重试策略覆盖、错误隔离和批次汇总变成稳定数据契约。
+- `src/film_engine/batch.py` 增加 `BatchProductionRunner`，在 Film Core 内部以 deterministic 单进程方式执行多个 Director Program；后续接 Celery、Temporal、Argo 或自研队列时可以替换执行层，不改 DSL/QA/Retry/Ledger。
+- `tests/test_film_engine_batch.py` 覆盖成功批次汇总、单条失败隔离、优先级排序和 `max_items` 上限，避免“批量生产”退化成临时脚本。
+
 ## 后续架构优化建议
 
 ### 模型接入
