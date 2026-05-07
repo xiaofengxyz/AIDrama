@@ -7,8 +7,20 @@ from dotenv import load_dotenv
 
 from .utils import get_logger
 
-# Load environment variables from .env file
-load_dotenv()
+def _load_project_env():
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    preferred = os.getenv("AIDRAMA_ENV_FILE", ".env.local")
+    candidates = [
+        os.path.join(project_root, ".env"),
+        os.path.join(project_root, preferred),
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            load_dotenv(path, override=True)
+
+
+# Load environment variables from project config files.
+_load_project_env()
 
 logger = get_logger(__name__)
 

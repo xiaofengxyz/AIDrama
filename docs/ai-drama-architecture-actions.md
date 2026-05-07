@@ -13,7 +13,7 @@
 - 前端 `selectProject` 统一使用 `API_URL`，不再硬编码 `localhost:8000`。
 - 集合接口增加 `ensureArrayResponse`，把代理错误从压缩后的 `Q.map` 变成可读的 API routing 错误。
 - 增加单测覆盖集合响应保护和 nginx API 前缀配置。
-- 上游推荐库统一放到 `external/open-source-repos/lumenx`，后续多个候选并列管理。
+- 本轮已取消 `external/` 常驻上游 clone，避免根目录和 external 双工程配置混乱；后续只临时 clone 参考源。
 
 ## 后续架构优化建议
 

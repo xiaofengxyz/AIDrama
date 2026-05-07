@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ACCOUNT_FILE="${1:-Doc/accounts}"
-ENV_FILE="${2:-.env}"
+ENV_FILE="${2:-.env.local}"
 
 if [[ ! -f "$ACCOUNT_FILE" ]]; then
   echo "Missing account file: $ACCOUNT_FILE" >&2

@@ -33,11 +33,23 @@ logger = logging.getLogger(__name__)
 # Setup logging to user directory
 setup_logging()
 
-# Use absolute path for .env file (api.py is in src/apps/comic_gen/)
 _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-env_path = os.path.join(_project_root, ".env")
-if os.path.exists(env_path):
-    load_dotenv(env_path, override=True)
+
+
+def _get_development_env_path(project_root: str) -> str:
+    env_file = os.getenv("AIDRAMA_ENV_FILE", ".env.local")
+    return os.path.join(project_root, env_file)
+
+
+def _load_development_env(project_root: str) -> None:
+    legacy_env = os.path.join(project_root, ".env")
+    preferred_env = _get_development_env_path(project_root)
+    for env_path in (legacy_env, preferred_env):
+        if os.path.exists(env_path):
+            load_dotenv(env_path, override=True)
+
+
+_load_development_env(_project_root)
 
 # Debug: Print OSS configuration at startup
 logger.info(f"STARTUP: OSS_ENDPOINT={os.getenv('OSS_ENDPOINT')}, OSS_BUCKET_NAME={os.getenv('OSS_BUCKET_NAME')}, OSS_BASE_PATH={os.getenv('OSS_BASE_PATH')}")
@@ -671,7 +683,7 @@ def _normalize_provider_mode(value: Optional[str]) -> str:
 def get_user_config_path() -> str:
     """
     Returns the path to the user config file.
-    - Development mode: Uses .env in project root
+    - Development mode: Uses .env.local in project root by default
     - Packaged app mode: Uses ~/.lumen-x/config.json
     """
     from ...utils import get_user_data_dir
@@ -685,10 +697,9 @@ def get_user_config_path() -> str:
         os.makedirs(config_dir, exist_ok=True)
         return os.path.join(config_dir, "config.json")
     else:
-        # Use .env in project root for development
-        # Get absolute path to project root (api.py is in src/apps/comic_gen/)
+        # Use .env.local in project root for development.
         project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-        return os.path.join(project_root, ".env")
+        return _get_development_env_path(project_root)
 
 
 
@@ -708,7 +719,7 @@ def load_user_config():
                         os.environ[key] = value
             except Exception as e:
                 logger.warning(f"Failed to load config from {config_path}: {e}")
-    # .env is already loaded at startup via dotenv
+    # Project env files are already loaded at startup via dotenv.
 
 
 def save_user_config(config_dict: dict):
@@ -729,7 +740,7 @@ def save_user_config(config_dict: dict):
         with open(config_path, "w") as f:
             json.dump(existing_config, f, indent=2)
     else:
-        # .env for development
+        # .env.local for development
         for key, value in config_dict.items():
             if value is not None:
                 set_key(config_path, key, value)
@@ -759,7 +770,7 @@ def remove_user_config_keys(keys: list):
             try:
                 unset_key(config_path, key)
             except Exception as e:
-                logger.warning(f"Failed to unset key {key} from .env: {e}")
+                logger.warning(f"Failed to unset key {key} from development env file: {e}")
 
 
 # Load user config on startup

@@ -10,13 +10,9 @@
 
 ## 上游参考源码
 
-官方 LumenX 已浅克隆到：
+本轮已清理 `external/` 下的上游 clone，避免根目录和 external 同时存在一套 Docker、前端、后端配置。当前根目录是唯一可运行工程。
 
-```bash
-external/open-source-repos/lumenx
-```
-
-该目录只作为本地参考源，已被 `.gitignore` 和 `.dockerignore` 忽略。不要把它作为主工程代码提交。
+如果后续需要对比官方 LumenX，上游源码只能临时 clone 到 `external/` 这类忽略目录，用完保持只读参考，不参与构建、不提交、不作为主工程启动入口。
 
 ## 端口
 
@@ -48,14 +44,14 @@ curl http://localhost:17177/config/info
 ./scripts/bootstrap_env.sh
 ```
 
-它会生成本地 `.env`，包含：
+它会生成本地 `.env.local`，包含：
 
 - `DASHSCOPE_API_KEY`
 - `DASHSCOPE_BASE_URL`
 - `LLM_PROVIDER=dashscope`
 - `OPENAI_BASE_URL` 与 `OPENAI_API_KEY`，作为可选 OpenAI-compatible 备用配置
 
-`.env` 与 `Doc/accounts` 都被 `.gitignore` 忽略，`Doc/accounts` 也被 `.dockerignore` 忽略。
+`.env.local`、旧版 `.env` 与 `Doc/accounts` 都被 `.gitignore` 忽略，`Doc/accounts` 也被 `.dockerignore` 忽略。
 
 ## 常用命令
 

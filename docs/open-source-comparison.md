@@ -74,7 +74,7 @@ GitHub star/fork/commit 数读取于 2026-05-06，后续会变化，以项目页
 ## 推荐落地方案
 
 1. 本项目继续用 LumenX 做主基座。
-2. 保留 `external/open-source-repos/lumenx` 作为官方上游参考源，后续按需 cherry-pick 或人工移植新功能。
+2. `external/` 不再常驻上游 clone，避免重复配置干扰；需要对比官方上游时临时 clone 到 ignored 目录，按需人工移植。
 3. 第一阶段只跑 DashScope-only，不急着接满 Kling/Vidu/Seedance。
 4. 建立镜头级抽卡台账，记录 prompt、参考图、模型、成本、候选评分和最终采用原因。
 5. 如果非技术同事上手阻力大，再把 LocalMiniDrama 作为桌面工具备选进行一次短期试用。

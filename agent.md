@@ -12,9 +12,9 @@
 
 - 默认使用单个 agent 连续推进；只有用户明确要求时才启动多 agent。
 - 先看现有代码和文档，再改动。
-- 不打印、复制、总结 `Doc/accounts`、`.env` 或任何 API key/secret。
-- 不提交 `external/`、`.research/`、`output/`、`.env`、`Doc/accounts`。
-- `external/lumenx` 是官方上游参考 clone，默认只读；需要同步上游改动时，先说明范围再移植到主工程。
+- 不打印、复制、总结 `Doc/accounts`、`.env.local`、`.env` 或任何 API key/secret。
+- 不提交 `external/`、`.research/`、`output/`、`.env.local`、`.env`、`Doc/accounts`。
+- 根目录是唯一可运行工程；`external/` 只允许临时放只读参考 clone，不能参与构建或提交。
 - 当前项目面向 2-3 人 AI 漫剧试制团队，优先降低试错成本、角色一致性成本和部署维护成本。
 
 ## 当前项目选择
@@ -26,7 +26,7 @@
 - WSL Ubuntu 22.04 + Docker
 - 前端端口 `3014`
 - 后端端口 `17177`
-- `scripts/bootstrap_env.sh` 从 `Doc/accounts` 生成 `.env`
+- `scripts/bootstrap_env.sh` 从 `Doc/accounts` 生成 `.env.local`
 - DashScope-first provider 路由
 
 ## 常用命令
@@ -61,13 +61,14 @@ cd frontend && npm run test
 docker compose config --quiet
 ```
 
-不要运行会打印完整 Compose 配置的 `docker compose config`，因为它会展开 `.env` 中的密钥。
+不要运行会打印完整 Compose 配置的 `docker compose config`，因为它会展开 `.env.local` 或旧 `.env` 中的密钥。
 
 ## 代码地图
 
 - `src/apps/comic_gen/api.py`：FastAPI 入口。
 - `src/apps/comic_gen/pipeline.py`：核心生产流程。
 - `src/apps/comic_gen/models.py`：项目、角色、场景、分镜、任务等数据结构。
+- `src/film_engine/`：工业 AI Film Engine 的最小核心闭环，包含 Runtime、Director DSL、Shot Graph、Prompt Compiler、Registry、QA、Retry、Film State。
 - `src/models/`：模型供应商封装。
 - `src/utils/provider_registry.py`：模型家族和 provider 后端路由。
 - `frontend/src/components/modules/`：创作工作台主要页面组件。

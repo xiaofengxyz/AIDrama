@@ -5,12 +5,13 @@ services:
       dockerfile: Dockerfile.backend
     container_name: lumenx-backend
     env_file:
-      - .env
+      - path: .env.local
+        required: false
     environment:
       - NO_PROXY=*.aliyuncs.com,localhost,127.0.0.1
+      - AIDRAMA_ENV_FILE=.env.local
     volumes:
       - ./output:/app/output
-      - ./.env:/app/.env
     ports:
       - "17177:17177"
     restart: unless-stopped
