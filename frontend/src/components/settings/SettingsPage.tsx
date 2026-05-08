@@ -76,8 +76,8 @@ const getValidationErrors = (env: EnvConfig): string[] => {
   return errors;
 };
 
-const LS_KEY_MODEL = "lumenx_default_model_settings";
-const LS_KEY_PROMPT = "lumenx_default_prompt_config";
+const LS_KEY_MODEL = "aidrama_default_model_settings";
+const LS_KEY_PROMPT = "aidrama_default_prompt_config";
 
 interface DefaultModelSettings {
   t2i_model: string;
@@ -257,7 +257,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-2">OSS Base Path</label>
-                  <input type="text" value={config.OSS_BASE_PATH} onChange={(e) => handleChange("OSS_BASE_PATH", e.target.value)} placeholder="lumenx" className={inputClass} />
+                  <input type="text" value={config.OSS_BASE_PATH} onChange={(e) => handleChange("OSS_BASE_PATH", e.target.value)} placeholder="aidrama" className={inputClass} />
                 </div>
               </div>
             </div>

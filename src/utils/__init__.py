@@ -5,7 +5,7 @@ import os
 # User data directory for logs, config, and data
 def get_user_data_dir() -> str:
     """Returns the user data directory for the application."""
-    return os.path.join(os.path.expanduser("~"), ".lumen-x")
+    return os.path.join(os.path.expanduser("~"), ".aidrama")
 
 
 def get_log_dir() -> str:

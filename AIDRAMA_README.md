@@ -1,6 +1,6 @@
 # AIDrama Project Notes
 
-This project is an AI Film Engine workspace. The target platform base is Jellyfish; the current repository still includes a runnable LumenX-compatible workbench for local production, verification, and migration.
+This project is an AI Film Engine workspace. The target platform base is Jellyfish, and the runnable product entry is AIDrama Studio for local production, verification, and migration.
 
 Recommended local path:
 

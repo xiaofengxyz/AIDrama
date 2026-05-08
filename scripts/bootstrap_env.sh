@@ -30,7 +30,7 @@ umask 077
   echo "DASHSCOPE_API_KEY=$AI_API_KEY"
   echo "DASHSCOPE_BASE_URL=$DASHSCOPE_BASE_URL"
   echo ""
-  echo "# LumenX defaults to DashScope. OpenAI-compatible values are kept for optional switching."
+  echo "# AIDrama defaults to DashScope. OpenAI-compatible values are kept for optional switching."
   echo "LLM_PROVIDER=dashscope"
   echo "OPENAI_API_KEY=$AI_API_KEY"
   echo "OPENAI_BASE_URL=$AI_BASE_URL"

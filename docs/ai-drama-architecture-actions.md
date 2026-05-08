@@ -4,9 +4,9 @@
 
 ## 当前架构判断
 
-最终主平台基座采用 Starter Kit 指定的 Jellyfish。当前仓库仍运行 LumenX-compatible FastAPI + Next.js 工作台，适合小团队先做内容生产闭环和迁移期回归。前端负责工作台交互，后端负责项目数据、模型调用、媒体文件、视频合成；模型供应商通过 provider registry 分流，天然适合以后替换或新增模型。
+最终主平台基座采用 Starter Kit 指定的 Jellyfish。当前仓库运行 AIDrama Studio（FastAPI + Next.js），适合小团队先做内容生产闭环和迁移期回归。前端负责工作台交互，后端负责项目数据、模型调用、媒体文件、视频合成；模型供应商通过 provider registry 分流，天然适合以后替换或新增模型。
 
-架构口径：Jellyfish 承载 Studio OS、Workflow Core、Project System、Asset Management、Async Task System、Shot Management 和 Studio UI；`src/film_engine/` 承载可迁移 Film Core；当前 LumenX-compatible 层只作为可运行入口和实现参考。
+架构口径：Jellyfish 承载 Studio OS、Workflow Core、Project System、Asset Management、Async Task System、Shot Management 和 Studio UI；`src/film_engine/` 承载可迁移 Film Core；AIDrama Studio 是当前可运行入口和实现参考。
 
 ## 本轮修复
 
@@ -19,10 +19,16 @@
 
 ## 当前会话新增固化
 
+- `src/film_engine/models.py` 增加 `StoryBeat`、`StoryGraph`、`StoryGraphEdge`、`FinalEditClip`、`FinalEditTimeline`、`FilmProductionRun`，让 Script -> Story Graph -> Final Editing 有稳定数据契约。
+- `src/film_engine/story_graph.py` 增加 deterministic Story Graph Builder，把剧本文本拆成有序 beat、边和 adjacency。
+- `src/film_engine/director_planner.py` 增加 Director Planner，把 Story Graph 映射为镜头类型、构图、运镜、焦段、时长和转场。
+- `src/film_engine/pipeline.py` 增加 Film Production Pipeline，串联 Script、Story Graph、Director Planner、Film Core 和 Final Editing。
+- `src/film_engine/final_editing.py` 增加 Final Editing Assembler，从 Generation Ledger 输出 EDL/timeline、clip timing、QA summary 和 unresolved shots。
 - `src/film_engine/models.py` 增加 `GenerationAttempt`、`ShotRun`、`GenerationLedger` 数据契约，把镜头级抽卡、QA、重试、prompt 指纹、输出、成本和耗时记录为可序列化台账。
 - `src/film_engine/ledger.py` 增加 `GenerationLedgerRecorder`，作为独立 recorder 接入 Film Core，不绑定 DashScope、Kling、Vidu 或任何具体视频 runtime。
 - `src/film_engine/orchestrator.py` 在每次 runtime attempt 后写入台账，并把台账 summary 放进 `FilmEngineRun.metadata["generation_ledger"]`，方便后续 UI、队列和成本看板读取。
 - `tests/test_film_engine_core.py` 增加台账回归，覆盖正常成功、失败后重试、人工评分/标签/备注三类关键路径。
+- `tests/test_film_production_pipeline.py` 覆盖从脚本文本到 Story Graph、Director Planner、Film Core dry-run 和 Final Editing 的端到端闭环。
 
 ## 本轮批量生产补齐
 

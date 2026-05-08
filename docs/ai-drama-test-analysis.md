@@ -4,7 +4,7 @@
 
 ## 测试目标
 
-验证当前 LumenX-compatible 工作台是否能支持小团队从题材样片到单集成片的生产闭环，并优先发现会阻断“打开、创建、生成、选择、导出”的问题。最终主平台基座以 Jellyfish 为准，本测试文档覆盖迁移期可运行入口。
+验证当前 AIDrama Studio 是否能支持小团队从题材样片到单集成片的生产闭环，并优先发现会阻断“打开、创建、生成、选择、导出”的问题。最终主平台基座以 Jellyfish 为准，本测试文档覆盖当前可运行入口。
 
 ## 核心用例
 
@@ -48,10 +48,27 @@
 | BUG-002 | P1 | `projectStore.selectProject` 仍硬编码 `localhost:8000` | 选择项目时可能绕过当前 `API_URL`，Docker/自定义端口下刷新失败 | 已修复 |
 | BUG-003 | P1 | `getProjects`、`listSeries` 等集合接口直接 `.map` 或直接返回 | API 代理异常时错误信息晦涩，页面容易白屏 | 已修复 |
 | BUG-004 | P1 | 缺少 nginx API 前缀测试 | 后续新增端点容易再次漏代理 | 已补测试 |
-| BUG-005 | P2 | 文档中的上游 clone 路径仍指向旧 `external/lumenx` | 后续多候选仓库管理不清晰 | 已更新 |
+| BUG-005 | P2 | 文档中的上游 clone 路径指向旧脚手架 | 后续多候选仓库管理不清晰 | 已更新 |
 
 ## 回归建议
 
 - 每次改 Docker 或前端 API 前缀，都运行前端单测。
 - 每次新增后端路由，都检查 nginx 是否需要同源代理。
-- 每次升级上游 LumenX，都先跑空数据首页、系列列表、项目列表这三个冒烟用例。
+- 每次升级上游参考或平台层，都先跑空数据首页、系列列表、项目列表这三个冒烟用例。
+
+## 本轮新增自动化测试
+
+| 文件 | 覆盖点 |
+|---|---|
+| `tests/test_film_production_pipeline.py` | Script -> Story Graph -> Director Planner -> Film Core -> Final Editing 全链路 dry-run |
+| `tests/test_film_engine_core.py` | Director DSL、Shot Graph、Registry、Prompt Compiler、QA、Retry、Ledger |
+| `tests/test_film_engine_batch.py` | 批量生产计划、优先级、失败隔离、批次汇总 |
+
+新增验收命令：
+
+```bash
+python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s
+python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
+```
+
+宿主环境如果缺少 DashScope SDK，provider 集成测试会在 collection 阶段失败；这种情况进入 Docker 后端容器补齐依赖再跑全量测试。

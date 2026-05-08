@@ -15,6 +15,64 @@ class RuntimeBackend(str, Enum):
     VEO = "veo"
 
 
+class StoryBeat(BaseModel):
+    id: str
+    order: int = Field(0, ge=0)
+    source_text: str
+    summary: str = ""
+    scene_hint: str = "unspecified"
+    characters: List[str] = Field(default_factory=list)
+    emotional_intent: str = "neutral"
+    narrative_function: str = "setup"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id", "source_text")
+    @classmethod
+    def validate_non_empty_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("story beat fields cannot be empty")
+        return value
+
+
+class StoryGraphEdge(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_beat: str = Field(alias="from")
+    to_beat: str = Field(alias="to")
+    edge_type: str = Field("next", alias="type")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class StoryGraph(BaseModel):
+    graph_id: str = "story_default"
+    source_title: str = ""
+    beats: List[StoryBeat] = Field(default_factory=list)
+    edges: List[StoryGraphEdge] = Field(default_factory=list)
+    adjacency: Dict[str, List[str]] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_graph(self) -> "StoryGraph":
+        if not self.beats:
+            raise ValueError("StoryGraph requires at least one beat")
+        beat_ids = [beat.id for beat in self.beats]
+        duplicate_ids = sorted(
+            {beat_id for beat_id in beat_ids if beat_ids.count(beat_id) > 1}
+        )
+        if duplicate_ids:
+            raise ValueError(f"Duplicate story beat ids: {duplicate_ids}")
+        known_ids = set(beat_ids)
+        for edge in self.edges:
+            if edge.from_beat not in known_ids or edge.to_beat not in known_ids:
+                raise ValueError(
+                    "Story graph edge references unknown beat: "
+                    f"{edge.from_beat} -> {edge.to_beat}"
+                )
+            if edge.from_beat == edge.to_beat:
+                raise ValueError(f"Story graph cannot self-loop on {edge.from_beat}")
+        return self
+
+
 class DirectorScene(BaseModel):
     id: str = "scene_default"
     location: str = "unspecified"
@@ -334,6 +392,37 @@ class FilmEngineRun(BaseModel):
     qa_reports: List[QAReport] = Field(default_factory=list)
     generation_ledger: Optional[GenerationLedger] = None
     final_state: FilmState
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FinalEditClip(BaseModel):
+    clip_id: str
+    shot_id: str
+    output_uri: str
+    start_time: float = Field(0.0, ge=0.0)
+    end_time: float = Field(0.0, ge=0.0)
+    duration: float = Field(0.0, ge=0.0)
+    scene_id: Optional[str] = None
+    character_ids: List[str] = Field(default_factory=list)
+    transition: str = "cut"
+    qa_score: float = Field(0.0, ge=0.0, le=1.0)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FinalEditTimeline(BaseModel):
+    sequence_id: str
+    clips: List[FinalEditClip] = Field(default_factory=list)
+    total_duration: float = Field(0.0, ge=0.0)
+    unresolved_shots: List[str] = Field(default_factory=list)
+    qa_summary: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FilmProductionRun(BaseModel):
+    story_graph: StoryGraph
+    director_program: DirectorProgram
+    film_run: FilmEngineRun
+    final_edit: FinalEditTimeline
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 

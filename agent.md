@@ -21,7 +21,7 @@
 
 主平台基座（最终架构）：Jellyfish
 
-当前可运行兼容工作台：LumenX Studio
+当前可运行工作台：AIDrama Studio（Jellyfish-oriented）
 
 本项目已适配：
 
@@ -31,7 +31,7 @@
 - `scripts/bootstrap_env.sh` 从 `Doc/accounts` 生成 `.env.local`
 - DashScope-first provider 路由
 
-说明：Starter Kit 明确把 Jellyfish 定为 AI Film Engine 的主平台基座。当前仓库仍保留 LumenX 可运行代码，是为了不中断本地试制、测试和迁移验证；后续架构判断不得再把 LumenX 写成最终主基座。
+说明：Starter Kit 明确把 Jellyfish 定为 AI Film Engine 的主平台基座。当前仓库的可运行入口已改为 AIDrama Studio，后续架构判断不得再把旧脚手架写成主基座。
 
 ## 常用命令
 
@@ -46,7 +46,7 @@ make doctor
 后端测试优先在容器里跑，避免宿主 Python 缺少 DashScope/OSS 依赖：
 
 ```bash
-docker cp tests lumenx-backend:/app/tests
+docker cp tests aidrama-backend:/app/tests
 docker compose exec -T backend python -m pip install --no-cache-dir pytest
 docker compose exec -T backend python -m pytest -q -s /app/tests
 ```
@@ -72,7 +72,7 @@ docker compose config --quiet
 - `src/apps/comic_gen/api.py`：FastAPI 入口。
 - `src/apps/comic_gen/pipeline.py`：核心生产流程。
 - `src/apps/comic_gen/models.py`：项目、角色、场景、分镜、任务等数据结构。
-- `src/film_engine/`：工业 AI Film Engine 的最小核心闭环，包含 Runtime、Director DSL、Shot Graph、Prompt Compiler、Registry、QA、Retry、Film State。
+- `src/film_engine/`：工业 AI Film Engine 的最小核心闭环，包含 Story Graph、Director Planner、Runtime、Director DSL、Shot Graph、Prompt Compiler、Registry、QA、Retry、Film State、Final Editing。
 - `src/models/`：模型供应商封装。
 - `src/utils/provider_registry.py`：模型家族和 provider 后端路由。
 - `frontend/src/components/modules/`：创作工作台主要页面组件。

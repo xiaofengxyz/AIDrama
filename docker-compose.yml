@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: lumenx-backend
+    container_name: aidrama-backend
     env_file:
       - path: .env.local
         required: false
@@ -20,7 +20,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
-    container_name: lumenx-frontend
+    container_name: aidrama-frontend
     ports:
       - "3014:80"
     depends_on:

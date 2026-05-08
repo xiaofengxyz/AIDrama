@@ -9,8 +9,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>LumenX Studio</title>
-        <meta name="description" content="AI-Native Motion Comic Creation Platform" />
+        <title>AIDrama Studio</title>
+        <meta name="description" content="Jellyfish-oriented industrial AI Film Engine" />
       </head>
       <body className="font-sans bg-background text-foreground antialiased">
         <EnvConfigChecker />
