@@ -38,6 +38,8 @@ from .models import (
     RuntimeResult,
     SceneAsset,
     SceneBible,
+    SeriesEpisodeBlueprint,
+    SeriesProductionBlueprint,
     ShotRun,
     ShotGraph,
     ShotTransition,
@@ -52,6 +54,7 @@ from .qa import QAEngine
 from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
 from .retry import RetryEngine
 from .runtime import DryRunRuntimeAdapter, RuntimeRouter
+from .series import SeriesProductionPlanner
 from .shot_graph import ShotGraphBuilder
 from .state import FilmStateEngine
 from .story_graph import StoryGraphBuilder
@@ -100,6 +103,9 @@ __all__ = [
     "SceneAsset",
     "SceneBible",
     "SceneRegistry",
+    "SeriesEpisodeBlueprint",
+    "SeriesProductionBlueprint",
+    "SeriesProductionPlanner",
     "ShotRun",
     "ShotGraph",
     "ShotGraphBuilder",

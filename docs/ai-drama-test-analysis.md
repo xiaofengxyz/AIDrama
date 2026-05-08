@@ -90,6 +90,10 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-025 | Film Core API 浏览器访问 | GET `/film/pipeline/run` | 返回 endpoint 使用说明、固定九阶段和 sample payload，不再返回 405 |
 | TC-026 | QA & Export 深链 | 访问 `#/project/{id}/step/export` 或 `#/series/{sid}/episode/{eid}/step/export` | 直接打开项目/单集工作台第 9 步 |
 | TC-027 | 系列单集入口 | 在系列详情页选择某一集并点击 `QA & Export` | 跳转到该集工作台并展示 `Industrial QA & Export` 控制台 |
+| TC-028 | 5 集系列蓝图 | 加载 `samples/series_production/vertical_suspense_5ep.yaml` | 解析出 5 集、角色、场景、道具、服装和 continuity locks |
+| TC-029 | 系列蓝图批量编排 | 将 5 集蓝图编译为 `BatchProductionPlan` | 5 个 episode item 按优先级排序，保留每集 Story Graph、Director Program 和资产引用 |
+| TC-030 | 系列蓝图 dry-run | 使用共享 Character/Scene/Production Registry 执行 5 集 dry-run | 5 集全部 accepted，15 个镜头都有 selected output，Film State 保留 continuity locks |
+| TC-031 | 3 个样片模板 | 加载 `samples/pilot_samples/three_60_90s_pilots.yaml` | 每个样片目标时长在 60-90 秒，可构建 Story Graph |
 
 ## 本次九阶段可视化新增自动化测试
 
@@ -98,6 +102,7 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | `frontend/src/__tests__/film-engine.test.ts` | 前端 Film Core payload 构造、空脚本分镜回退、九阶段状态评估、控制台指标汇总 |
 | `frontend/src/__tests__/workspace-routing.test.ts` | 项目/系列单集工作台 hash 解析、QA & Export 深链构造 |
 | `tests/test_film_pipeline_api.py` | `/film/pipeline/run` 响应包含 `film_run.shot_graph`，Shot Graph 阶段不再只停留在后端内部 |
+| `tests/test_series_production_blueprint.py` | D7 样片和 5 集系列蓝图加载、编译、批量 dry-run、重复集号拒绝 |
 
 新增验收命令：
 
@@ -106,4 +111,5 @@ cd frontend && npm run test
 cd frontend && npm run test:ui
 cd frontend && npx tsc --noEmit --pretty false
 python3 -m pytest tests/test_film_pipeline_api.py tests/test_film_production_pipeline.py -q -s
+python3 -m pytest tests/test_series_production_blueprint.py -q -s
 ```

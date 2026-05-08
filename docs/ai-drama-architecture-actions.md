@@ -62,6 +62,15 @@
 - `frontend/src/components/series/SeriesDetailPage.tsx` 在单集面板增加 `QA & Export` 直达按钮，明确“系列详情页”和“单集项目工作台”的边界。
 - `frontend/src/__tests__/workspace-routing.test.ts` 覆盖项目/系列单集深链解析和构造，防止第 9 步入口再次只存在于文档里。
 
+## 本次 D7 样片与系列模板补齐
+
+- `src/film_engine/models.py` 增加 `SeriesEpisodeBlueprint`、`SeriesProductionBlueprint`，把多集题材验证模板变成稳定数据契约。
+- `src/film_engine/series.py` 增加 `SeriesProductionPlanner`，负责加载 YAML/JSON 系列蓝图、构建共享 Character/Scene/Production Registry、编译每集 Story Graph 与 Director Program，并输出 `BatchProductionPlan`。
+- `SeriesProductionPlanner.run_blueprint()` 复用 `BatchProductionRunner` 和 `FilmEngine` 执行多集 dry-run，验证跨集 continuity locks、QA、Retry、Ledger 和 selected outputs。
+- `samples/series_production/vertical_suspense_5ep.yaml` 提供 5 集悬疑短漫剧模板，覆盖主角、场景、道具、服装、连续性锁和每集剧本。
+- `samples/pilot_samples/three_60_90s_pilots.yaml` 提供 3 个 60-90 秒题材样片模板，用于先做题材验证再扩成 5 集。
+- `tests/test_series_production_blueprint.py` 覆盖系列蓝图加载、批量编排、共享 registry dry-run、重复集号拒绝和 3 个样片 Story Graph 可用性。
+
 ## 后续架构优化建议
 
 ### 模型接入

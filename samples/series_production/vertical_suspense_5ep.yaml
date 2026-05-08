@@ -1,0 +1,226 @@
+series_production:
+  id: night_signal_s01
+  title: Night Signal Season 1
+  backend: dry_run
+  retry_policy:
+    max_attempts: 2
+    min_score: 0.82
+    repair_failed_prompts: true
+  metadata:
+    format: vertical_9_16
+    target_episode_duration_seconds: 75
+    bible_version: v1
+    production_goal: validate a five-episode suspense mini-drama with locked character, prop, costume, and scene continuity
+  characters:
+    - id: maya
+      name: Maya
+      description: investigator with sharp eyes, black shoulder-length hair, nervous but brave expression
+      current_outfit: blue_raincoat
+      reference_images:
+        - refs/maya_full_body.png
+        - refs/maya_face_turnaround.png
+      locked_traits:
+        - sharp almond eyes
+        - black shoulder-length hair
+        - small scar below left eyebrow
+      continuity_notes:
+        - keep the face shape and eyebrow scar identical across every episode
+  scenes:
+    - id: night_corridor
+      location: night_corridor
+      mood: suspense
+      lighting: flickering fluorescent
+      weather: rainy
+      tone: cold_blue
+      camera_style: handheld_slow_push
+      time_of_day: night
+      reference_images:
+        - refs/night_corridor.png
+    - id: safe_house
+      location: safe_house
+      mood: paranoid
+      lighting: desk_lamp_low_key
+      tone: amber_blue_contrast
+      camera_style: locked_off_closeups
+      time_of_day: night
+      reference_images:
+        - refs/safe_house.png
+    - id: rain_stairwell
+      location: rain_stairwell
+      mood: chase
+      lighting: emergency_red_blue
+      weather: rain
+      tone: wet_neon
+      camera_style: tracking_handheld
+      time_of_day: night
+      reference_images:
+        - refs/rain_stairwell.png
+    - id: archive_basement
+      location: archive_basement
+      mood: reveal
+      lighting: single_overhead_practical
+      tone: dusty_green
+      camera_style: slow_reveal
+      time_of_day: pre_dawn
+      reference_images:
+        - refs/archive_basement.png
+    - id: rooftop_dawn
+      location: rooftop_dawn
+      mood: resolution
+      lighting: first_light
+      weather: light_rain
+      tone: pale_gold
+      camera_style: wide_static_to_closeup
+      time_of_day: dawn
+      reference_images:
+        - refs/rooftop_dawn.png
+  props:
+    - id: evidence_phone
+      name: Evidence Phone
+      description: cracked black smartphone containing the hidden voice memo
+      category: story_prop
+      signature_details:
+        - spiderweb crack on the upper-left corner
+        - dim blue notification glow
+      reference_images:
+        - refs/evidence_phone.png
+      locked_traits:
+        - cracked screen
+        - black case
+      continuity_notes:
+        - crack pattern must not change after episode 1
+    - id: red_thread_badge
+      name: Red Thread Badge
+      description: brass badge tied with a short red thread
+      category: clue
+      signature_details:
+        - tarnished brass surface
+        - red thread loop through the pin
+      reference_images:
+        - refs/red_thread_badge.png
+      locked_traits:
+        - brass badge
+        - red thread
+      continuity_notes:
+        - always appears in Maya's left hand when inspected
+  costumes:
+    - id: blue_raincoat
+      name: Blue Raincoat
+      description: saturated cobalt raincoat with reflective hood trim
+      wardrobe_role: heroine_signature
+      palette:
+        - cobalt_blue
+        - wet_black
+      materials:
+        - glossy nylon
+      silhouette: knee_length_hooded
+      reference_images:
+        - refs/blue_raincoat.png
+      locked_traits:
+        - cobalt color
+        - reflective hood trim
+      continuity_notes:
+        - do not replace with school uniform or casual hoodie
+    - id: black_field_outfit
+      name: Black Field Outfit
+      description: matte black tactical jacket used after the midpoint reveal
+      wardrobe_role: investigation_mode
+      palette:
+        - matte_black
+        - dark_gray
+      materials:
+        - heavy cotton
+      silhouette: cropped_jacket
+      reference_images:
+        - refs/black_field_outfit.png
+      locked_traits:
+        - matte black jacket
+        - gray inner collar
+  continuity_locks:
+    character_bible:
+      maya:
+        face: sharp almond eyes, black shoulder-length hair, eyebrow scar
+        voice: restrained, low, urgent
+    scene_bible:
+      night_corridor:
+        lighting: flickering fluorescent, cold blue rain reflections
+      safe_house:
+        lighting: single desk lamp, amber-blue contrast
+    production_bible:
+      evidence_phone:
+        crack_pattern: spiderweb_upper_left
+        case_color: black
+      blue_raincoat:
+        color: cobalt_blue
+        hood_trim: reflective
+  episodes:
+    - episode_id: ep01
+      title: The Sixth Missed Call
+      priority: 10
+      tags:
+        - suspense
+        - pilot
+        - sample_60_90s
+      script_text: |
+        INT. NIGHT CORRIDOR
+        Maya: The phone rang five times before I arrived. [character=maya] [prop=evidence_phone] [costume=blue_raincoat]
+
+        The cracked phone lights up by itself, and a shadow crosses the frosted glass.
+
+        Maya: If I answer it, the killer knows I am here.
+    - episode_id: ep02
+      title: The Safe House Lie
+      priority: 20
+      tags:
+        - suspense
+        - clue
+        - sample_60_90s
+      script_text: |
+        INT. SAFE HOUSE
+        Maya hides the evidence phone beneath the desk lamp. [character=maya] [prop=evidence_phone] [costume=blue_raincoat]
+
+        A voice memo plays even though the battery reads zero percent.
+
+        Maya: The caller was inside this room before me.
+    - episode_id: ep03
+      title: Red Stairwell Chase
+      priority: 30
+      tags:
+        - chase
+        - midpoint
+        - sample_60_90s
+      script_text: |
+        INT. RAIN STAIRWELL
+        Maya runs down the wet stairs, clutching the red badge. [character=maya] [prop=red_thread_badge] [costume=blue_raincoat]
+
+        Emergency lights flash across the same scar under her eyebrow as footsteps close in.
+
+        Maya: You wanted me to find this badge.
+    - episode_id: ep04
+      title: Basement Archive
+      priority: 40
+      tags:
+        - reveal
+        - investigation
+        - sample_60_90s
+      script_text: |
+        INT. ARCHIVE BASEMENT
+        Maya changes into the black field outfit and opens the sealed drawer. [character=maya] [prop=red_thread_badge] [costume=black_field_outfit]
+
+        The badge fits a hidden lock, revealing a photo of Maya at the first crime scene.
+
+        Maya: I was the witness they erased.
+    - episode_id: ep05
+      title: Dawn Signal
+      priority: 50
+      tags:
+        - finale
+        - resolution
+        - sample_60_90s
+      script_text: |
+        EXT. ROOFTOP DAWN
+        Maya places the evidence phone beside the red badge as dawn breaks. [character=maya] [prop=evidence_phone] [prop=red_thread_badge] [costume=black_field_outfit]
+
+        The final call arrives, but this time she records the caller first.
+
+        Maya: Now the whole city hears you.

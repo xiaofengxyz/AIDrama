@@ -420,6 +420,60 @@ class BatchProductionPlan(BaseModel):
         return self
 
 
+class SeriesEpisodeBlueprint(BaseModel):
+    episode_id: str
+    title: str
+    script_text: str
+    graph_id: Optional[str] = None
+    priority: int = 100
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("episode_id", "title", "script_text")
+    @classmethod
+    def validate_non_empty_series_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("series episode blueprint fields cannot be empty")
+        return value
+
+
+class SeriesProductionBlueprint(BaseModel):
+    id: str = "series_default"
+    title: str = ""
+    backend: RuntimeBackend = RuntimeBackend.DRY_RUN
+    retry_policy: RetryPolicy = Field(default_factory=RetryPolicy)
+    characters: List[CharacterAsset] = Field(default_factory=list)
+    scenes: List[SceneAsset] = Field(default_factory=list)
+    props: List[PropAsset] = Field(default_factory=list)
+    costumes: List[CostumeAsset] = Field(default_factory=list)
+    continuity_locks: Dict[str, Any] = Field(default_factory=dict)
+    episodes: List[SeriesEpisodeBlueprint] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("id")
+    @classmethod
+    def validate_series_id(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("series production blueprint id cannot be empty")
+        return value
+
+    @model_validator(mode="after")
+    def validate_episodes(self) -> "SeriesProductionBlueprint":
+        if not self.episodes:
+            raise ValueError("SeriesProductionBlueprint requires at least one episode")
+        episode_ids = [episode.episode_id for episode in self.episodes]
+        duplicate_ids = sorted(
+            {
+                episode_id
+                for episode_id in episode_ids
+                if episode_ids.count(episode_id) > 1
+            }
+        )
+        if duplicate_ids:
+            raise ValueError(f"Duplicate series episode ids: {duplicate_ids}")
+        return self
+
+
 class FilmState(BaseModel):
     active_scene_id: Optional[str] = None
     character_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)

@@ -1,0 +1,46 @@
+pilot_samples:
+  id: three_vertical_pilot_samples
+  purpose: validate three low-cost 60-90 second AI mini-drama directions before expanding one into a five-episode series
+  samples:
+    - sample_id: suspense_signal_75s
+      title: Night Signal
+      genre: urban_suspense
+      target_duration_seconds: 75
+      audience_hook: a cracked phone keeps calling after its owner is dead
+      production_risk: continuity relies on one face, one costume, one phone, and cold corridor lighting
+      success_metric: first three seconds retention and comment curiosity about the caller
+      script_text: |
+        INT. NIGHT CORRIDOR
+        Maya: The dead girl's phone is calling me again. [character=maya] [prop=evidence_phone] [costume=blue_raincoat]
+
+        The screen flashes with a sixth missed call, and the corridor lights die one by one.
+
+        Maya: If I answer, I can hear the murderer breathing.
+    - sample_id: contract_bride_80s
+      title: Contract Bride Counterattack
+      genre: romance_revenge
+      target_duration_seconds: 80
+      audience_hook: a fake bride signs a contract, then exposes the groom's hidden debt
+      production_risk: facial consistency and wardrobe continuity across dialogue closeups
+      success_metric: completion rate through the contract reveal
+      script_text: |
+        INT. HOTEL SUITE
+        Lina signs the marriage contract without looking at the groom. [character=lina] [costume=white_suit]
+
+        The groom laughs, but Lina slides a debt ledger across the table.
+
+        Lina: I did not marry you for money. I married you for evidence. [prop=debt_ledger]
+    - sample_id: midnight_delivery_70s
+      title: Midnight Delivery
+      genre: urban_fantasy_case
+      target_duration_seconds: 70
+      audience_hook: a courier delivers food to an address that vanished ten years ago
+      production_risk: scene continuity between alley, elevator, and apartment threshold
+      success_metric: shares driven by the address twist
+      script_text: |
+        EXT. RAINY ALLEY
+        Jun checks the delivery app, but the address keeps changing. [character=jun] [prop=delivery_bag] [costume=yellow_rain_jacket]
+
+        The elevator opens in the alley wall, showing floor thirteen on a twelve-floor building.
+
+        Jun: The customer ordered this meal ten years ago.

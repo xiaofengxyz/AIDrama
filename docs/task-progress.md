@@ -14,6 +14,40 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-09 D7 样片模板、使用手册与 LumenX 运行面清理复核
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 现状复核 | 已完成 | 复核 git、文档、前端源码、Film Core、测试矩阵和 LumenX 关键词残留 | `git status --short --branch`、`rg 'LumenX|lumenx|Lumen'`、读取 `frontend/src/app/page.tsx` |
+| 2. 工程补齐 | 已完成 | 补齐 D7 多题材样片/5 集验证模板与可复用系列生产编排能力 | `src/film_engine/series.py`、新增样例、后端单测 |
+| 3. 测试文档 | 已完成 | 以测试工程师视角补充系列模板、操作路径和行业痛点验收用例 | `docs/ai-drama-test-analysis.md` |
+| 4. 用户手册 | 已完成 | 从配置到多集 AI 漫剧出片补全详细操作手册，并说明页面是否涉及 UI 操作 | `USER_MANUAL.md` |
+| 5. 清理提交推送 | 已完成 | 冲突检查、测试、提交并按需推送 | `git diff --check`、`git ls-files -u`、`git push origin main` |
+
+本轮初步结论：
+
+- 运行面 UI 源码没有使用 LumenX；`rg` 只在历史 PRD、开源对比报告和上一轮进度验证记录里发现 LumenX 文字。
+- 当前 AIDrama Studio 是可运行入口，主平台口径是 Jellyfish-oriented，不再以 LumenX 作为 UI 基座。
+- Film Core 九阶段、QA/Retry、Ledger、Batch Production、Final Editing 已有可测试闭环；本轮重点补 D7 样片/5 集验证模板和零基础操作手册。
+- 已新增 `SeriesProductionBlueprint`、`SeriesProductionPlanner`、`samples/series_production/vertical_suspense_5ep.yaml` 和 `samples/pilot_samples/three_60_90s_pilots.yaml`，把 D7 样片/5 集验证纳入自动化测试。
+
+本轮验证记录：
+
+- `python3 -m compileall -q src/film_engine`：通过。
+- `python3 -m pytest tests/test_series_production_blueprint.py -q -s`：通过，5 passed。
+- `python3 -m pytest tests/test_series_production_blueprint.py tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py tests/test_film_pipeline_api.py -q -s`：通过，22 passed，3 skipped（宿主缺 DashScope 时 API app 测试按既有规则跳过）。
+- `cd frontend && npm run test`：通过，8 个测试文件，109 个测试。
+- `cd frontend && npm run test:ui`：通过，2 个测试文件，47 个测试；错误态用例保留预期 stderr。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建启动。
+- `docker cp tests aidrama-backend:/app/tests && docker cp samples aidrama-backend:/app/samples && docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，142 passed，41 warnings。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl http://localhost:17177/film/pipeline/run`：HTTP 200，返回 Film Core endpoint 说明和固定九阶段。
+- `docker run --rm aidrama-frontend:latest ... grep 'LumenX|lumenx|Lumen'`：通过，构建后的前端无旧品牌字符串。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git push origin main`：已推送本轮必要修改到 `origin/main`。
+
 ### 2026-05-08 QA & Export 入口复核与 D1-D6 收口
 
 | 阶段 | 状态 | 本轮动作 | 验收方式 |

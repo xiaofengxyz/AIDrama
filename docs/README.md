@@ -15,7 +15,8 @@
 7. [架构分析与本轮工程动作](ai-drama-architecture-actions.md)：架构/工程视角的修复与后续优化。
 8. [AI 漫剧赚钱方式与落地路线](ai-drama-business-plan.md)：内容试制、B2B、账号矩阵与 90 天路线。
 9. [任务进度索引](task-progress.md)：跨会话交接时先看这里。
-10. [AI 协作指南](../agent.md)：给后续 AI 会话使用的仓库工作规则。
+10. [用户操作手册](../USER_MANUAL.md)：从配置到多集 AI 漫剧生产的完整操作路径。
+11. [AI 协作指南](../agent.md)：给后续 AI 会话使用的仓库工作规则。
 
 ## 当前推荐
 
@@ -39,3 +40,8 @@ make down
 - 前端：`http://localhost:3014`
 - 后端 API：`http://localhost:17177/docs`
 - Film Core dry-run API：`POST http://localhost:17177/film/pipeline/run`
+
+## 当前样例模板
+
+- `samples/pilot_samples/three_60_90s_pilots.yaml`：3 个 60-90 秒样片方向。
+- `samples/series_production/vertical_suspense_5ep.yaml`：5 集竖屏悬疑短漫剧蓝图，可用于批量 dry-run 验证。
