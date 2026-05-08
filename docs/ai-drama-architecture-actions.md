@@ -30,6 +30,16 @@
 - `tests/test_film_engine_core.py` 增加台账回归，覆盖正常成功、失败后重试、人工评分/标签/备注三类关键路径。
 - `tests/test_film_production_pipeline.py` 覆盖从脚本文本到 Story Graph、Director Planner、Film Core dry-run 和 Final Editing 的端到端闭环。
 
+## 本次复核新增固化
+
+- `ProductionBible`、`PropAsset`、`CostumeAsset` 和 `AssetRegistry` 已进入 `src/film_engine/`，道具与服装不再只停留在应用层。
+- Director DSL、Story Graph、Director Planner、Prompt Compiler、Film State、Generation Ledger、Final Editing 全部保留 `prop_ids` 与 `costume_ids`，支持镜头级道具/服装连续性追踪。
+- Story Graph 支持脚本内 `[prop=...]`、`[costume=...]` 标签，且修复了 `INT.` / `EXT.` 场景头被错误拆句的问题。
+- `src/apps/comic_gen/api.py` 新增 `POST /film/pipeline/run`，用于 Jellyfish-style 工作台以 dry-run 方式调用 Script -> Story Graph -> Director Planner -> Film Core -> Final Editing。
+- `docker/nginx.conf` 增加 `/film/` 代理，避免 Docker 前端同源调用 Film Core API 时落回静态页面。
+- `samples/production_bible/suspense_assets.yaml` 提供道具、服装与 continuity locks 样例。
+- `tests/test_film_pipeline_api.py` 覆盖 Film Core API 的 dry-run 成功与未知资产拒绝路径；宿主缺 `dashscope` 时跳过，容器环境执行。
+
 ## 本轮批量生产补齐
 
 - `src/film_engine/models.py` 增加 `BatchProductionItem`、`BatchProductionPlan`、`BatchProductionRun`，把多序列生产批次、优先级、重试策略覆盖、错误隔离和批次汇总变成稳定数据契约。

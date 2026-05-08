@@ -46,6 +46,8 @@ class DirectorDSLParser:
             sequence_id=sequence_id,
             scene=scene,
             characters=list(data.get("characters") or []),
+            props=list(data.get("props") or []),
+            costumes=list(data.get("costumes") or []),
             shots=shots,
             transitions=transitions,
             metadata=dict(data.get("metadata") or {}),

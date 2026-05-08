@@ -19,6 +19,7 @@ describe("docker nginx API proxy config", () => {
       "/video/",
       "/voices",
       "/config/",
+      "/film/",
     ];
 
     for (const prefix of requiredPrefixes) {

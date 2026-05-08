@@ -99,6 +99,8 @@ class DirectorShot(BaseModel):
     pacing: Optional[str] = None
     action: Optional[str] = None
     dialogue: Optional[str] = None
+    prop_ids: List[str] = Field(default_factory=list)
+    costume_ids: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("id")
@@ -122,6 +124,8 @@ class DirectorProgram(BaseModel):
     sequence_id: str = "sequence_default"
     scene: DirectorScene = Field(default_factory=DirectorScene)
     characters: List[str] = Field(default_factory=list)
+    props: List[str] = Field(default_factory=list)
+    costumes: List[str] = Field(default_factory=list)
     shots: List[DirectorShot] = Field(default_factory=list)
     transitions: List[ShotTransition] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
@@ -167,6 +171,32 @@ class SceneAsset(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+class PropAsset(BaseModel):
+    id: str
+    name: str = ""
+    description: str = ""
+    category: Optional[str] = None
+    signature_details: List[str] = Field(default_factory=list)
+    reference_images: List[str] = Field(default_factory=list)
+    locked_traits: List[str] = Field(default_factory=list)
+    continuity_notes: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class CostumeAsset(BaseModel):
+    id: str
+    name: str = ""
+    description: str = ""
+    wardrobe_role: Optional[str] = None
+    palette: List[str] = Field(default_factory=list)
+    materials: List[str] = Field(default_factory=list)
+    silhouette: Optional[str] = None
+    reference_images: List[str] = Field(default_factory=list)
+    locked_traits: List[str] = Field(default_factory=list)
+    continuity_notes: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class CharacterBible(BaseModel):
     id: str = "character_bible"
     version: str = "v1"
@@ -183,11 +213,22 @@ class SceneBible(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+class ProductionBible(BaseModel):
+    id: str = "production_bible"
+    version: str = "v1"
+    props: List[PropAsset] = Field(default_factory=list)
+    costumes: List[CostumeAsset] = Field(default_factory=list)
+    continuity_locks: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class PromptCompileRequest(BaseModel):
     backend: RuntimeBackend
     scene: DirectorScene
     shot: DirectorShot
     characters: List[CharacterAsset] = Field(default_factory=list)
+    props: List[PropAsset] = Field(default_factory=list)
+    costumes: List[CostumeAsset] = Field(default_factory=list)
     scene_asset: Optional[SceneAsset] = None
     film_state: Dict[str, Any] = Field(default_factory=dict)
     repair_notes: List[str] = Field(default_factory=list)
@@ -288,6 +329,8 @@ class ShotRun(BaseModel):
     shot_id: str
     scene_id: Optional[str] = None
     character_ids: List[str] = Field(default_factory=list)
+    prop_ids: List[str] = Field(default_factory=list)
+    costume_ids: List[str] = Field(default_factory=list)
     status: str = "pending"
     attempts: List[GenerationAttempt] = Field(default_factory=list)
     selected_attempt: Optional[int] = None
@@ -381,6 +424,8 @@ class FilmState(BaseModel):
     active_scene_id: Optional[str] = None
     character_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     scene_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    prop_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    costume_states: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     timeline: List[Dict[str, Any]] = Field(default_factory=list)
     continuity_locks: Dict[str, Any] = Field(default_factory=dict)
     updated_at: float = Field(default_factory=time.time)
@@ -404,6 +449,8 @@ class FinalEditClip(BaseModel):
     duration: float = Field(0.0, ge=0.0)
     scene_id: Optional[str] = None
     character_ids: List[str] = Field(default_factory=list)
+    prop_ids: List[str] = Field(default_factory=list)
+    costume_ids: List[str] = Field(default_factory=list)
     transition: str = "cut"
     qa_score: float = Field(0.0, ge=0.0, le=1.0)
     metadata: Dict[str, Any] = Field(default_factory=dict)

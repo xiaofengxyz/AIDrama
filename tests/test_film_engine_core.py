@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from src.film_engine import (
+    AssetRegistry,
     CharacterAsset,
     CharacterRegistry,
     DirectorDSLParser,
@@ -71,6 +72,62 @@ def test_bibles_seed_registries_and_film_state_locks():
     ] == "cold_blue"
     assert "continuity:" in run.runtime_results[0].metadata["prompt"]
     assert "hairstyle=black_long" in run.runtime_results[0].metadata["prompt"]
+
+
+def test_production_bible_seeds_props_costumes_and_prompt_locks():
+    program = DirectorDSLParser().parse_yaml(
+        """
+sequence_id: prop_costume_sequence
+scene:
+  id: dark_corridor
+  location: dark_corridor
+  mood: suspense
+characters:
+  - heroine_001
+props:
+  - evidence_phone
+costumes:
+  - blue_raincoat
+shots:
+  - id: shot_001
+    type: insert
+    target: heroine_001
+    action: heroine grips the cracked phone under flickering light
+    prop_ids:
+      - evidence_phone
+    costume_ids:
+      - blue_raincoat
+"""
+    )
+    characters = CharacterRegistry(
+        [
+            CharacterAsset(
+                id="heroine_001",
+                reference_images=["refs/heroine_face.png"],
+            )
+        ]
+    )
+    assets = AssetRegistry.from_bible_file(
+        PROJECT_ROOT / "samples/production_bible/suspense_assets.yaml"
+    )
+
+    run = FilmEngine(character_registry=characters, asset_registry=assets).run(program)
+
+    assert assets.bible_ids == ["suspense_asset_bible"]
+    assert assets.require_prop("evidence_phone").signature_details[0].startswith("spiderweb")
+    assert assets.require_costume("blue_raincoat").palette == ["cobalt_blue", "wet_black"]
+    assert run.final_state.continuity_locks["production_bible"]["evidence_phone"][
+        "crack_pattern"
+    ] == "spiderweb_upper_left"
+    assert run.final_state.prop_states["evidence_phone"]["last_seen_shot"] == "shot_001"
+    assert run.final_state.costume_states["blue_raincoat"]["last_seen_shot"] == "shot_001"
+    prompt = run.runtime_results[0].metadata["prompt"]
+    assert "assets:" in prompt
+    assert "prop(Evidence Phone" in prompt
+    assert "costume(Blue Raincoat" in prompt
+    shot_run = run.generation_ledger.shot_runs["shot_001"]
+    assert shot_run.prop_ids == ["evidence_phone"]
+    assert shot_run.costume_ids == ["blue_raincoat"]
 
 
 def test_shot_graph_rejects_cycles():

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks, UploadFile, File, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -24,6 +25,19 @@ from .models import (
 from .llm import ScriptProcessor, DEFAULT_STORYBOARD_POLISH_PROMPT, DEFAULT_VIDEO_POLISH_PROMPT, DEFAULT_R2V_POLISH_PROMPT
 from ...utils.oss_utils import OSSImageUploader, sign_oss_urls_in_data
 from ...utils import setup_logging
+from ...film_engine import (
+    AssetRegistry,
+    CharacterAsset as FilmCharacterAsset,
+    CharacterRegistry as FilmCharacterRegistry,
+    CostumeAsset as FilmCostumeAsset,
+    FilmProductionPipeline,
+    ProductionBible,
+    PropAsset as FilmPropAsset,
+    RetryPolicy as FilmRetryPolicy,
+    RuntimeBackend as FilmRuntimeBackend,
+    SceneAsset as FilmSceneAsset,
+    SceneRegistry as FilmSceneRegistry,
+)
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv, set_key
 
@@ -167,6 +181,79 @@ class UpdateAssetAttributesRequest(BaseModel):
     asset_id: str
     asset_type: str
     attributes: Dict[str, Any]
+
+
+class FilmPipelineRunRequest(BaseModel):
+    """Dry-run Film Core request for Jellyfish-style workbench integration."""
+
+    script_text: str = Field(..., min_length=1)
+    graph_id: str = "story_default"
+    source_title: str = ""
+    backend: FilmRuntimeBackend = FilmRuntimeBackend.DRY_RUN
+    max_attempts: int = Field(2, ge=1, le=8)
+    min_score: float = Field(0.82, ge=0.0, le=1.0)
+    characters: List[FilmCharacterAsset] = Field(default_factory=list)
+    scenes: List[FilmSceneAsset] = Field(default_factory=list)
+    props: List[FilmPropAsset] = Field(default_factory=list)
+    costumes: List[FilmCostumeAsset] = Field(default_factory=list)
+    continuity_locks: Dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post("/film/pipeline/run")
+async def run_film_pipeline(request: FilmPipelineRunRequest):
+    """Run Script -> Story Graph -> Director Planner -> Film Core -> Final Editing.
+
+    The endpoint intentionally defaults to `dry_run` so the Studio can inspect
+    graph, prompt, QA, retry, ledger, and final-edit contracts without spending
+    model budget or binding to one vendor runtime.
+    """
+    try:
+        character_registry = FilmCharacterRegistry(request.characters)
+        scene_registry = FilmSceneRegistry(request.scenes)
+        asset_registry = AssetRegistry(
+            bibles=[
+                ProductionBible(
+                    props=request.props,
+                    costumes=request.costumes,
+                    continuity_locks=request.continuity_locks,
+                )
+            ]
+        )
+        production_run = FilmProductionPipeline().run_script(
+            request.script_text,
+            graph_id=request.graph_id,
+            source_title=request.source_title,
+            backend=request.backend,
+            retry_policy=FilmRetryPolicy(
+                max_attempts=request.max_attempts,
+                min_score=request.min_score,
+            ),
+            character_registry=character_registry,
+            scene_registry=scene_registry,
+            asset_registry=asset_registry,
+        )
+        return JSONResponse(
+            content=jsonable_encoder(
+                {
+                    "story_graph": production_run.story_graph,
+                    "director_program": production_run.director_program,
+                    "film_run": {
+                        "summary": production_run.film_run.generation_ledger.summary()
+                        if production_run.film_run.generation_ledger
+                        else {},
+                        "final_state": production_run.film_run.final_state,
+                        "qa_reports": production_run.film_run.qa_reports,
+                    },
+                    "generation_ledger": production_run.film_run.generation_ledger,
+                    "final_edit": production_run.final_edit,
+                    "metadata": production_run.metadata,
+                }
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except KeyError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.get("/system/check")

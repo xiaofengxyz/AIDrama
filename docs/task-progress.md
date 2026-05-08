@@ -14,6 +14,16 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-08 本次复核执行
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| A. 现状复核 | 已完成 | 复核 Jellyfish 上游参考、Docker 运行口径、Film Core 模块和测试覆盖 | `git status --short --branch`、读取 `src/film_engine/`、`external/jellyfish/README.md` |
+| B. 缺口确认 | 已完成 | 确认核心链路已具备，但道具/服装/资产圣经尚未进入 Film Core；缺少可供工作台调用的 dry-run 管线 API | 补齐 `ProductionBible`、`AssetRegistry`、`/film/pipeline/run` |
+| C. 工程实现 | 已完成 | 将资产管理、continuity locks、prompt compiler、state engine、API 接入模块化实现 | 新增/更新单元测试 |
+| D. 测试与运行 | 已完成 | 跑后端核心测试、前端测试、Docker 配置与本地服务冒烟 | pytest、vitest、docker compose/curl |
+| E. 清理提交推送 | 已完成 | 检查冲突和工作区，提交必要修改并 push | `git diff --check`、`git ls-files -u`、`git push` |
+
 | 阶段 | 状态 | 本轮动作 | 验收方式 |
 |---|---|---|---|
 | 1. 仓库盘点 | 已完成 | 检查 git 状态、运行入口、前后端、旧品牌残留、Film Core 模块 | `git status --short --branch`、全仓关键词搜索 |
@@ -38,10 +48,20 @@
 
 ## 本轮新增工程能力
 
+- `src/film_engine/models.py`
+  - 新增 `ProductionBible`、`PropAsset`、`CostumeAsset`。
+  - `DirectorProgram` / `DirectorShot` / `PromptCompileRequest` / `ShotRun` / `FilmState` / `FinalEditClip` 保留道具和服装引用。
+- `src/film_engine/registry.py`
+  - 新增 `AssetRegistry`，可从 production bible 加载道具、服装与 continuity locks。
+- `src/apps/comic_gen/api.py`
+  - 新增 `POST /film/pipeline/run`，对 Jellyfish-style 工作台暴露 dry-run Film Core 管线。
+- `docker/nginx.conf`
+  - 新增 `/film/` 代理，保证 Docker 前端可同源调用 Film Core API。
 - `src/film_engine/story_graph.py`
   - 从剧本文本构建 deterministic Story Graph。
   - 输出 StoryBeat、StoryGraphEdge、adjacency。
   - 支持人物对白、场景 hint、情绪和叙事功能的结构化抽取。
+  - 支持 `[prop=...]`、`[costume=...]` 标签，并保护 `INT.` / `EXT.` 场景头不被错误拆分。
 - `src/film_engine/director_planner.py`
   - 把 Story Graph 转成可拍摄 DirectorProgram。
   - 根据叙事功能映射镜头类型、构图、运镜、镜头焦段、时长。
@@ -57,8 +77,32 @@
   - 新增 StoryGraph、FinalEditTimeline、FilmProductionRun 等 Pydantic 契约。
 - `tests/test_film_production_pipeline.py`
   - 覆盖剧本拆图、导演规划、全链路 dry-run、Final Editing 缺失输出。
+- `tests/test_film_pipeline_api.py`
+  - 覆盖 `/film/pipeline/run` dry-run API 成功与未知资产拒绝路径。
 
 ## 当前验证记录
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s`：通过，17 个测试。
+- `python3 -m pytest tests/test_film_pipeline_api.py -q -s`：宿主缺 `dashscope`，2 个 API 测试按用例 skip，命令正常退出。
+- `python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s`：通过，17 个测试。
+- `cd frontend && npm run test`：通过，6 个测试文件，101 个测试。
+- `docker compose config --quiet`：通过。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend` 与 `aidrama-frontend` 已启动。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl -sS http://localhost:3014/projects/`：HTTP 200，返回 `[]`。
+- `curl -sS http://localhost:3014/series`：HTTP 200，返回 `[]`。
+- `curl -sS http://localhost:17177/config/info`：HTTP 200，返回 development config 状态。
+- `curl -sS -X POST http://localhost:17177/film/pipeline/run ...`：HTTP 200，返回 Story Graph、Director Program、Generation Ledger、Final Edit。
+- `curl -sS -X POST http://localhost:3014/film/pipeline/run ...`：HTTP 200，验证 nginx `/film/` 代理生效。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests/test_film_engine_core.py /app/tests/test_film_engine_batch.py /app/tests/test_film_production_pipeline.py /app/tests/test_film_pipeline_api.py`：通过，19 个测试。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，136 个测试，41 个 warning。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git fetch origin` + `git status --short --branch`：本地 `main` 未落后 `origin/main`。
+- `git commit -m "Add film asset bible pipeline API"`：已创建本轮提交。
+
+以下为此前会话验证记录，保留用于交接追溯：
 
 - `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py src/utils/oss_utils.py src/utils/media_refs.py`：通过。
 - `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s`：通过，15 个测试。
@@ -108,6 +152,7 @@
 - Prompt Compiler
 - Character Bible / Character Registry
 - Scene Bible / Scene Registry
+- Production Bible / Asset Registry
 - Generation Ledger
 - Final Editing
 
@@ -119,7 +164,7 @@
 |---|---|---|
 | D1 | AIDrama/Jellyfish-oriented 工作台启动、品牌和路径清理 | 首页不再出现旧品牌，容器名和数据目录统一 |
 | D2 | Script -> Story Graph -> Director Planner 核心链路 | 可测试 DirectorProgram 与镜头图 |
-| D3 | 角色/服装/道具/场景资产锁定 | Character/Scene Bible 与 continuity locks 用于 prompt compile |
+| D3 | 角色/服装/道具/场景资产锁定 | Character/Scene/Production Bible 与 continuity locks 用于 prompt compile |
 | D4 | QA/Retry/Generation Ledger | 单镜头 attempt、QA finding、repair notes、成本和输出可复盘 |
 | D5 | Batch Production | 多序列计划、优先级、失败隔离、汇总 |
 | D6 | Final Editing | EDL/timeline、selected output、unresolved shot 报告 |

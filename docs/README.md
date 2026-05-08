@@ -38,3 +38,4 @@ make down
 
 - 前端：`http://localhost:3014`
 - 后端 API：`http://localhost:17177/docs`
+- Film Core dry-run API：`POST http://localhost:17177/film/pipeline/run`

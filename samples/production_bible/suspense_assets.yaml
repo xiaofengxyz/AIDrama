@@ -1,0 +1,43 @@
+production_bible:
+  id: suspense_asset_bible
+  version: v1
+  props:
+    - id: evidence_phone
+      name: Evidence Phone
+      description: cracked black smartphone that contains the final clue
+      category: story_prop
+      signature_details:
+        - spiderweb crack on the upper-left corner
+        - dim blue notification glow
+      reference_images:
+        - refs/evidence_phone.png
+      locked_traits:
+        - cracked screen
+        - black case
+      continuity_notes:
+        - keep the same crack pattern whenever the phone appears
+  costumes:
+    - id: blue_raincoat
+      name: Blue Raincoat
+      description: saturated cobalt raincoat with reflective hood trim
+      wardrobe_role: heroine_signature
+      palette:
+        - cobalt_blue
+        - wet_black
+      materials:
+        - glossy nylon
+      silhouette: knee_length_hooded
+      reference_images:
+        - refs/blue_raincoat.png
+      locked_traits:
+        - cobalt color
+        - reflective hood trim
+      continuity_notes:
+        - do not replace with a school blazer or casual hoodie
+  continuity_locks:
+    evidence_phone:
+      crack_pattern: spiderweb_upper_left
+      case_color: black
+    blue_raincoat:
+      color: cobalt_blue
+      hood_trim: reflective

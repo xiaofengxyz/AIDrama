@@ -5,9 +5,11 @@ from typing import Any, Dict, Iterable
 
 from .models import (
     CharacterAsset,
+    CostumeAsset,
     DirectorScene,
     DirectorShot,
     FilmState,
+    PropAsset,
     QAReport,
     RuntimeResult,
     SceneAsset,
@@ -78,6 +80,67 @@ class FilmStateEngine:
             self.state.continuity_locks["scenes"][scene.id].update(scene_locks)
         self._touch()
 
+    def register_assets(
+        self,
+        props: Iterable[PropAsset] | None = None,
+        costumes: Iterable[CostumeAsset] | None = None,
+    ) -> None:
+        for prop in props or []:
+            self.state.prop_states.setdefault(
+                prop.id,
+                {
+                    "name": prop.name or prop.id,
+                    "category": prop.category,
+                    "signature_details": list(prop.signature_details),
+                    "locked_traits": list(prop.locked_traits),
+                    "continuity_notes": list(prop.continuity_notes),
+                    "last_seen_shot": None,
+                },
+            )
+            if prop.locked_traits or prop.signature_details:
+                prop_locks = self.state.continuity_locks.setdefault("props", {})
+                prop_locks.setdefault(prop.id, {})
+                prop_locks[prop.id].update(
+                    {
+                        key: value
+                        for key, value in {
+                            "locked_traits": list(prop.locked_traits),
+                            "signature_details": list(prop.signature_details),
+                        }.items()
+                        if value
+                    }
+                )
+
+        for costume in costumes or []:
+            self.state.costume_states.setdefault(
+                costume.id,
+                {
+                    "name": costume.name or costume.id,
+                    "wardrobe_role": costume.wardrobe_role,
+                    "palette": list(costume.palette),
+                    "materials": list(costume.materials),
+                    "silhouette": costume.silhouette,
+                    "locked_traits": list(costume.locked_traits),
+                    "continuity_notes": list(costume.continuity_notes),
+                    "last_seen_shot": None,
+                },
+            )
+            if costume.locked_traits or costume.palette or costume.silhouette:
+                costume_locks = self.state.continuity_locks.setdefault("costumes", {})
+                costume_locks.setdefault(costume.id, {})
+                costume_locks[costume.id].update(
+                    {
+                        key: value
+                        for key, value in {
+                            "locked_traits": list(costume.locked_traits),
+                            "palette": list(costume.palette),
+                            "silhouette": costume.silhouette,
+                        }.items()
+                        if value
+                    }
+                )
+        self._touch()
+
     def apply_continuity_locks(self, locks: Dict[str, Any]) -> None:
         self._deep_merge(self.state.continuity_locks, locks)
         self._touch()
@@ -90,6 +153,8 @@ class FilmStateEngine:
         scene: DirectorScene,
         shot: DirectorShot,
         characters: Iterable[CharacterAsset],
+        props: Iterable[PropAsset],
+        costumes: Iterable[CostumeAsset],
         result: RuntimeResult,
         report: QAReport,
     ) -> None:
@@ -107,11 +172,32 @@ class FilmStateEngine:
                     "last_emotion": shot.emotion,
                 }
             )
+        for prop in props:
+            self.state.prop_states.setdefault(prop.id, {})
+            self.state.prop_states[prop.id].update(
+                {
+                    "name": prop.name or prop.id,
+                    "category": prop.category,
+                    "last_seen_shot": shot.id,
+                }
+            )
+        for costume in costumes:
+            self.state.costume_states.setdefault(costume.id, {})
+            self.state.costume_states[costume.id].update(
+                {
+                    "name": costume.name or costume.id,
+                    "wardrobe_role": costume.wardrobe_role,
+                    "palette": list(costume.palette),
+                    "last_seen_shot": shot.id,
+                }
+            )
         self.state.timeline.append(
             {
                 "shot_id": shot.id,
                 "scene_id": scene.id,
                 "character_ids": [character.id for character in characters],
+                "prop_ids": [prop.id for prop in props],
+                "costume_ids": [costume.id for costume in costumes],
                 "output_uri": result.output_uri,
                 "qa_score": report.score,
                 "timestamp": time.time(),

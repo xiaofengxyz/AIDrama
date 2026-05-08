@@ -39,6 +39,8 @@ class FinalEditingAssembler:
                 duration=shot.duration,
                 scene_id=run.graph.scene.id,
                 character_ids=shot_run.character_ids if shot_run else [],
+                prop_ids=shot_run.prop_ids if shot_run else [],
+                costume_ids=shot_run.costume_ids if shot_run else [],
                 transition=transition_by_to_shot.get(shot.id, "cut"),
                 qa_score=qa_score,
                 metadata={

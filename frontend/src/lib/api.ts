@@ -63,6 +63,20 @@ export interface EnvConfigPayload {
     [key: string]: string | Record<string, string> | undefined;
 }
 
+export interface FilmPipelineRunPayload {
+    script_text: string;
+    graph_id?: string;
+    source_title?: string;
+    backend?: "dry_run" | "dashscope" | "kling" | "seedance" | "veo";
+    max_attempts?: number;
+    min_score?: number;
+    characters?: unknown[];
+    scenes?: unknown[];
+    props?: unknown[];
+    costumes?: unknown[];
+    continuity_locks?: Record<string, unknown>;
+}
+
 export interface VideoTask {
     id: string;
     project_id: string;
@@ -85,6 +99,11 @@ export interface VideoTask {
 }
 
 export const api = {
+    runFilmPipeline: async (payload: FilmPipelineRunPayload) => {
+        const res = await axios.post(`${API_URL}/film/pipeline/run`, payload);
+        return res.data;
+    },
+
     createProject: async (title: string, text: string, skipAnalysis: boolean = false) => {
         const res = await axios.post(`${API_URL}/projects`, { title, text }, {
             params: { skip_analysis: skipAnalysis }

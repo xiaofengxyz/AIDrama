@@ -5,7 +5,9 @@ from typing import List
 from .ledger import GenerationLedgerRecorder
 from .models import (
     CharacterAsset,
+    CostumeAsset,
     DirectorProgram,
+    DirectorShot,
     FilmEngineRun,
     PromptCompileRequest,
     RetryPolicy,
@@ -13,11 +15,12 @@ from .models import (
     RuntimeRequest,
     RuntimeResult,
     QAReport,
+    PropAsset,
     SceneAsset,
 )
 from .prompt_compiler import PromptCompiler
 from .qa import QAEngine
-from .registry import CharacterRegistry, SceneRegistry
+from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
 from .retry import RetryEngine
 from .runtime import RuntimeRouter
 from .shot_graph import ShotGraphBuilder
@@ -31,6 +34,7 @@ class FilmEngine:
         self,
         character_registry: CharacterRegistry | None = None,
         scene_registry: SceneRegistry | None = None,
+        asset_registry: AssetRegistry | None = None,
         runtime_router: RuntimeRouter | None = None,
         prompt_compiler: PromptCompiler | None = None,
         qa_engine: QAEngine | None = None,
@@ -40,6 +44,7 @@ class FilmEngine:
     ):
         self.character_registry = character_registry or CharacterRegistry()
         self.scene_registry = scene_registry or SceneRegistry()
+        self.asset_registry = asset_registry or AssetRegistry()
         self.runtime_router = runtime_router or RuntimeRouter()
         self.prompt_compiler = prompt_compiler or PromptCompiler()
         self.qa_engine = qa_engine or QAEngine()
@@ -62,6 +67,8 @@ class FilmEngine:
             registry_locks["character_bible"] = self.character_registry.continuity_locks
         if self.scene_registry.continuity_locks:
             registry_locks["scene_bible"] = self.scene_registry.continuity_locks
+        if self.asset_registry.continuity_locks:
+            registry_locks["production_bible"] = self.asset_registry.continuity_locks
         if registry_locks:
             self.state_engine.apply_continuity_locks(registry_locks)
         self.state_engine.register_scene(scene_asset or program.scene)
@@ -74,13 +81,17 @@ class FilmEngine:
 
         for shot in graph.shots:
             characters = self._resolve_characters(program.characters, shot.target)
+            props, costumes = self._resolve_assets(program, shot)
             self.state_engine.register_characters(characters)
+            self.state_engine.register_assets(props, costumes)
             compiled_prompt = self.prompt_compiler.compile(
                 PromptCompileRequest(
                     backend=backend,
                     scene=program.scene,
                     shot=shot,
                     characters=characters,
+                    props=props,
+                    costumes=costumes,
                     scene_asset=scene_asset,
                     film_state=self.state_engine.snapshot(),
                 )
@@ -111,12 +122,16 @@ class FilmEngine:
                     decision,
                     scene_id=program.scene.id,
                     character_ids=[character.id for character in characters],
+                    prop_ids=[prop.id for prop in props],
+                    costume_ids=[costume.id for costume in costumes],
                 )
                 if decision.action == "accept":
                     self.state_engine.apply_success(
                         program.scene,
                         shot,
                         characters,
+                        props,
+                        costumes,
                         result,
                         report,
                     )
@@ -157,3 +172,24 @@ class FilmEngine:
             if character_id not in character_ids and self.character_registry.get(character_id):
                 character_ids.append(character_id)
         return self.character_registry.resolve_many(character_ids)
+
+    def _resolve_assets(
+        self,
+        program: DirectorProgram,
+        shot: DirectorShot,
+    ) -> tuple[list[PropAsset], list[CostumeAsset]]:
+        prop_ids = self._unique_ids([*program.props, *shot.prop_ids])
+        costume_ids = self._unique_ids([*program.costumes, *shot.costume_ids])
+        return (
+            self.asset_registry.resolve_props(prop_ids),
+            self.asset_registry.resolve_costumes(costume_ids),
+        )
+
+    def _unique_ids(self, values: List[str]) -> List[str]:
+        seen = set()
+        unique_values = []
+        for value in values:
+            if value and value not in seen:
+                seen.add(value)
+                unique_values.append(value)
+        return unique_values

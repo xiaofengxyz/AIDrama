@@ -4,7 +4,7 @@ from .director_planner import DirectorPlanner
 from .final_editing import FinalEditingAssembler
 from .models import FilmProductionRun, RetryPolicy, RuntimeBackend
 from .orchestrator import FilmEngine
-from .registry import CharacterRegistry, SceneRegistry
+from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
 from .story_graph import StoryGraphBuilder
 
 
@@ -31,6 +31,7 @@ class FilmProductionPipeline:
         retry_policy: RetryPolicy | None = None,
         character_registry: CharacterRegistry | None = None,
         scene_registry: SceneRegistry | None = None,
+        asset_registry: AssetRegistry | None = None,
     ) -> FilmProductionRun:
         story_graph = self.story_graph_builder.build_from_script(
             script_text,
@@ -44,6 +45,7 @@ class FilmProductionPipeline:
         film_engine = FilmEngine(
             character_registry=character_registry,
             scene_registry=scene_registry,
+            asset_registry=asset_registry,
         )
         film_run = film_engine.run(
             director_program,

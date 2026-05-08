@@ -63,12 +63,23 @@
 | `tests/test_film_production_pipeline.py` | Script -> Story Graph -> Director Planner -> Film Core -> Final Editing 全链路 dry-run |
 | `tests/test_film_engine_core.py` | Director DSL、Shot Graph、Registry、Prompt Compiler、QA、Retry、Ledger |
 | `tests/test_film_engine_batch.py` | 批量生产计划、优先级、失败隔离、批次汇总 |
+| `tests/test_film_pipeline_api.py` | `/film/pipeline/run` dry-run API、道具/服装资产输入、未知资产错误 |
 
 新增验收命令：
 
 ```bash
 python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s
+python3 -m pytest tests/test_film_pipeline_api.py -q -s
 python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 ```
 
 宿主环境如果缺少 DashScope SDK，provider 集成测试会在 collection 阶段失败；这种情况进入 Docker 后端容器补齐依赖再跑全量测试。
+
+## 本次复核新增测试点
+
+| 编号 | 场景 | 用例 | 预期 |
+|---|---|---|---|
+| TC-017 | Production Bible | 加载道具/服装资产圣经并运行 Film Core | prompt、film state、ledger、final edit 都保留道具/服装和锁定信息 |
+| TC-018 | 剧本标签 | 剧本含 `[prop=...]`、`[costume=...]` | Story Graph 与 Director Program 继承资产引用，不丢失标签 |
+| TC-019 | Film Core API | 调用 `/film/pipeline/run` dry-run | 返回 story graph、director program、ledger summary、final edit |
+| TC-020 | API 错误 | 剧本引用未注册道具 | 返回 400 与可读错误，不静默生成随机资产 |

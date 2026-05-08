@@ -1,9 +1,12 @@
 from src.film_engine import (
+    AssetRegistry,
     CharacterAsset,
     CharacterRegistry,
+    CostumeAsset,
     DirectorPlanner,
     FilmProductionPipeline,
     FinalEditingAssembler,
+    PropAsset,
     RuntimeBackend,
     SceneAsset,
     SceneRegistry,
@@ -78,6 +81,46 @@ def test_director_planner_creates_shootable_program_from_story_graph():
     assert program.shots[0].metadata["story_beat_id"] == "beat_001"
     assert program.shots[1].emotion == "suspense"
     assert len(program.transitions) == 2
+
+
+def test_pipeline_preserves_tagged_props_and_costumes_from_script():
+    tagged_script = """
+INT. SAFE HOUSE
+Maya: Keep the proof hidden. [prop=evidence_phone] [costume=blue_raincoat]
+"""
+    asset_registry = AssetRegistry(
+        props=[
+            PropAsset(
+                id="evidence_phone",
+                name="Evidence Phone",
+                reference_images=["refs/evidence_phone.png"],
+                locked_traits=["cracked screen"],
+            )
+        ],
+        costumes=[
+            CostumeAsset(
+                id="blue_raincoat",
+                name="Blue Raincoat",
+                reference_images=["refs/blue_raincoat.png"],
+                palette=["cobalt_blue"],
+                locked_traits=["reflective trim"],
+            )
+        ],
+    )
+
+    run = FilmProductionPipeline().run_script(
+        tagged_script,
+        graph_id="tagged_assets_story",
+        backend=RuntimeBackend.DRY_RUN,
+        character_registry=_character_registry(),
+        asset_registry=asset_registry,
+    )
+
+    assert run.story_graph.beats[0].metadata["prop_ids"] == ["evidence_phone"]
+    assert run.director_program.shots[0].prop_ids == ["evidence_phone"]
+    assert run.director_program.shots[0].costume_ids == ["blue_raincoat"]
+    assert run.final_edit.clips[0].prop_ids == ["evidence_phone"]
+    assert run.final_edit.clips[0].costume_ids == ["blue_raincoat"]
 
 
 def test_full_pipeline_runs_script_to_final_edit_timeline():

@@ -34,8 +34,16 @@ class GenerationLedgerRecorder:
         decision: RetryDecision,
         scene_id: str | None = None,
         character_ids: Iterable[str] | None = None,
+        prop_ids: Iterable[str] | None = None,
+        costume_ids: Iterable[str] | None = None,
     ) -> GenerationAttempt:
-        shot_run = self._ensure_shot_run(request.shot_id, scene_id, character_ids)
+        shot_run = self._ensure_shot_run(
+            request.shot_id,
+            scene_id,
+            character_ids,
+            prop_ids,
+            costume_ids,
+        )
         attempt = GenerationAttempt(
             attempt_id=f"{request.shot_id}:attempt-{request.attempt}",
             shot_id=request.shot_id,
@@ -106,6 +114,8 @@ class GenerationLedgerRecorder:
         shot_id: str,
         scene_id: str | None,
         character_ids: Iterable[str] | None,
+        prop_ids: Iterable[str] | None,
+        costume_ids: Iterable[str] | None,
     ) -> ShotRun:
         if shot_id not in self.ledger.shot_runs:
             self.ledger.shot_runs[shot_id] = ShotRun(
@@ -118,6 +128,10 @@ class GenerationLedgerRecorder:
             shot_run.scene_id = scene_id
         if character_ids:
             shot_run.character_ids = sorted({*shot_run.character_ids, *character_ids})
+        if prop_ids:
+            shot_run.prop_ids = sorted({*shot_run.prop_ids, *prop_ids})
+        if costume_ids:
+            shot_run.costume_ids = sorted({*shot_run.costume_ids, *costume_ids})
         return shot_run
 
     def _apply_decision(

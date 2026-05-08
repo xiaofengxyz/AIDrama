@@ -72,6 +72,7 @@
 - 把角色、场景、道具、服装、世界观、禁用设定沉淀到系列级别。
 - 单集只引用和继承，减少每集重新提取导致的人设漂移。
 - 对角色增加“可出镜服装包”和“不可改变项”，例如脸型、发型、瞳色、标志性道具。
+- 本次复核已把道具/服装资产圣经下沉到 Film Core：`ProductionBible`、`PropAsset`、`CostumeAsset` 会参与 prompt、film state、ledger 和 final edit，而不是只作为 UI 里的资产列表。
 
 ### P1 模型选择与成本控制
 

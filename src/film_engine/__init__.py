@@ -17,6 +17,7 @@ from .models import (
     CharacterAsset,
     CharacterBible,
     CompiledPrompt,
+    CostumeAsset,
     DirectorProgram,
     DirectorScene,
     DirectorShot,
@@ -28,6 +29,8 @@ from .models import (
     GenerationAttempt,
     GenerationLedger,
     PromptCompileRequest,
+    ProductionBible,
+    PropAsset,
     QAReport,
     RetryPolicy,
     RuntimeBackend,
@@ -46,7 +49,7 @@ from .orchestrator import FilmEngine
 from .pipeline import FilmProductionPipeline
 from .prompt_compiler import PromptCompiler
 from .qa import QAEngine
-from .registry import CharacterRegistry, SceneRegistry
+from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
 from .retry import RetryEngine
 from .runtime import DryRunRuntimeAdapter, RuntimeRouter
 from .shot_graph import ShotGraphBuilder
@@ -58,10 +61,12 @@ __all__ = [
     "BatchProductionPlan",
     "BatchProductionRun",
     "BatchProductionRunner",
+    "AssetRegistry",
     "CharacterAsset",
     "CharacterBible",
     "CharacterRegistry",
     "CompiledPrompt",
+    "CostumeAsset",
     "DirectorDSLParser",
     "DirectorPlanner",
     "DirectorProgram",
@@ -82,6 +87,8 @@ __all__ = [
     "GenerationLedgerRecorder",
     "PromptCompileRequest",
     "PromptCompiler",
+    "ProductionBible",
+    "PropAsset",
     "QAEngine",
     "QAReport",
     "RetryEngine",

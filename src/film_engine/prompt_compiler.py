@@ -60,6 +60,12 @@ class PromptCompiler:
         ]
         if request.scene_asset:
             reference_images.extend(request.scene_asset.reference_images)
+        reference_images.extend(
+            ref for prop in request.props for ref in prop.reference_images
+        )
+        reference_images.extend(
+            ref for costume in request.costumes for ref in costume.reference_images
+        )
 
         prompt = "; ".join(
             self._compact(
@@ -67,6 +73,7 @@ class PromptCompiler:
                     profile.cinematic_prefix,
                     self._scene_segment(request),
                     self._character_segment(request),
+                    self._asset_segment(request),
                     self._shot_segment(request),
                     self._state_segment(request),
                     self._repair_segment(request.repair_notes),
@@ -83,6 +90,8 @@ class PromptCompiler:
             metadata={
                 "scene_id": request.scene.id,
                 "character_ids": character_ids,
+                "prop_ids": [prop.id for prop in request.props],
+                "costume_ids": [costume.id for costume in request.costumes],
                 "reference_images": reference_images,
                 "reference_image_count": len(reference_images),
                 "shot_type": request.shot.shot_type,
@@ -140,6 +149,58 @@ class PromptCompiler:
             values.append(" ".join(traits))
         return "characters: " + " | ".join(values)
 
+    def _asset_segment(self, request: PromptCompileRequest) -> str:
+        values = []
+        for prop in request.props:
+            traits = self._compact(
+                [
+                    prop.name or prop.id,
+                    prop.description,
+                    f"category={prop.category}" if prop.category else "",
+                    (
+                        f"signature={','.join(prop.signature_details)}"
+                        if prop.signature_details
+                        else ""
+                    ),
+                    f"locked={','.join(prop.locked_traits)}" if prop.locked_traits else "",
+                    (
+                        f"continuity_notes={','.join(prop.continuity_notes)}"
+                        if prop.continuity_notes
+                        else ""
+                    ),
+                ]
+            )
+            values.append("prop(" + " ".join(traits) + ")")
+        for costume in request.costumes:
+            traits = self._compact(
+                [
+                    costume.name or costume.id,
+                    costume.description,
+                    (
+                        f"wardrobe_role={costume.wardrobe_role}"
+                        if costume.wardrobe_role
+                        else ""
+                    ),
+                    f"palette={','.join(costume.palette)}" if costume.palette else "",
+                    f"materials={','.join(costume.materials)}" if costume.materials else "",
+                    f"silhouette={costume.silhouette}" if costume.silhouette else "",
+                    (
+                        f"locked={','.join(costume.locked_traits)}"
+                        if costume.locked_traits
+                        else ""
+                    ),
+                    (
+                        f"continuity_notes={','.join(costume.continuity_notes)}"
+                        if costume.continuity_notes
+                        else ""
+                    ),
+                ]
+            )
+            values.append("costume(" + " ".join(traits) + ")")
+        if not values:
+            return ""
+        return "assets: " + " | ".join(values)
+
     def _shot_segment(self, request: PromptCompileRequest) -> str:
         shot = request.shot
         return self._join_fields(
@@ -153,6 +214,8 @@ class PromptCompiler:
                 "target": shot.target,
                 "emotion": shot.emotion,
                 "pacing": shot.pacing,
+                "prop_ids": ",".join(shot.prop_ids) if shot.prop_ids else None,
+                "costume_ids": ",".join(shot.costume_ids) if shot.costume_ids else None,
                 "action": shot.action,
                 "dialogue": shot.dialogue,
             },

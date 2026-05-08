@@ -13,6 +13,7 @@ class StoryGraphBuilder:
     _SCENE_PATTERN = re.compile(
         r"(?i)\b(?:int|ext)\.?\s+([^\n.]+)|(?:scene|location|setting)\s*[:：]\s*([^\n]+)"
     )
+    _TAG_PATTERN = re.compile(r"\[(prop|costume)=([^\]]+)\]", flags=re.IGNORECASE)
 
     def build_from_script(
         self,
@@ -63,15 +64,22 @@ class StoryGraphBuilder:
         if len(paragraph_segments) > 1:
             return paragraph_segments
 
+        protected = re.sub(
+            r"\b(INT|EXT)\.\s+",
+            lambda match: f"{match.group(1)}__SCENE_DOT__ ",
+            cleaned,
+            flags=re.IGNORECASE,
+        )
         sentence_segments = [
-            segment.strip()
-            for segment in re.split(r"(?<=[.!?])\s+", cleaned)
+            segment.replace("__SCENE_DOT__", ".").strip()
+            for segment in re.split(r"(?<=[.!?])\s+", protected)
             if segment.strip()
         ]
-        return sentence_segments or [cleaned]
+        return self._merge_asset_tag_segments(sentence_segments) or [cleaned]
 
     def _build_beat(self, *, index: int, segment: str) -> StoryBeat:
         characters = sorted(set(self._extract_characters(segment)))
+        tagged_assets = self._extract_tagged_assets(segment)
         return StoryBeat(
             id=f"beat_{index:03d}",
             order=index,
@@ -84,6 +92,8 @@ class StoryGraphBuilder:
             metadata={
                 "source_length": len(segment),
                 "has_dialogue": bool(characters),
+                "prop_ids": tagged_assets["prop_ids"],
+                "costume_ids": tagged_assets["costume_ids"],
             },
         )
 
@@ -99,6 +109,30 @@ class StoryGraphBuilder:
             if value:
                 return self._slugify(value)[:48]
         return "story_space"
+
+    def _extract_tagged_assets(self, segment: str) -> Dict[str, List[str]]:
+        props = []
+        costumes = []
+        for tag_type, raw_value in self._TAG_PATTERN.findall(segment):
+            asset_id = self._slugify(raw_value)
+            if tag_type.lower() == "prop":
+                props.append(asset_id)
+            else:
+                costumes.append(asset_id)
+        return {
+            "prop_ids": sorted(set(props)),
+            "costume_ids": sorted(set(costumes)),
+        }
+
+    def _merge_asset_tag_segments(self, segments: List[str]) -> List[str]:
+        merged: List[str] = []
+        for segment in segments:
+            tagless = self._TAG_PATTERN.sub("", segment).strip()
+            if not tagless and merged:
+                merged[-1] = f"{merged[-1]} {segment}".strip()
+            else:
+                merged.append(segment)
+        return merged
 
     def _infer_emotion(self, segment: str) -> str:
         lowered = segment.lower()

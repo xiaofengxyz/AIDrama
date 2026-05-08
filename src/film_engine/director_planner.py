@@ -67,10 +67,26 @@ class DirectorPlanner:
         ]
         scene = self._plan_scene(story_graph)
         characters = sorted({character for beat in story_graph.beats for character in beat.characters})
+        props = sorted(
+            {
+                prop_id
+                for beat in story_graph.beats
+                for prop_id in beat.metadata.get("prop_ids", [])
+            }
+        )
+        costumes = sorted(
+            {
+                costume_id
+                for beat in story_graph.beats
+                for costume_id in beat.metadata.get("costume_ids", [])
+            }
+        )
         return DirectorProgram(
             sequence_id=sequence_id or story_graph.graph_id,
             scene=scene,
             characters=characters,
+            props=props,
+            costumes=costumes,
             shots=shot_list,
             transitions=transitions,
             metadata={
@@ -112,6 +128,8 @@ class DirectorPlanner:
             pacing=self._PACING_BY_EMOTION.get(beat.emotional_intent, "medium"),
             action=beat.summary,
             dialogue=self._dialogue_hint(beat),
+            prop_ids=list(beat.metadata.get("prop_ids", [])),
+            costume_ids=list(beat.metadata.get("costume_ids", [])),
             metadata={
                 "story_beat_id": beat.id,
                 "narrative_function": beat.narrative_function,

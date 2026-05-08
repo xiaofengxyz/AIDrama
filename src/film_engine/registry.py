@@ -6,7 +6,15 @@ from typing import Any, Dict, Iterable, List, Optional
 
 import yaml
 
-from .models import CharacterAsset, CharacterBible, SceneAsset, SceneBible
+from .models import (
+    CharacterAsset,
+    CharacterBible,
+    CostumeAsset,
+    ProductionBible,
+    PropAsset,
+    SceneAsset,
+    SceneBible,
+)
 
 
 def _load_mapping_file(path: str | Path) -> Dict[str, Any]:
@@ -202,6 +210,126 @@ class SceneRegistry:
             id=payload.get("id", "scene_bible"),
             version=str(payload.get("version", "v1")),
             scenes=scenes,
+            continuity_locks=dict(payload.get("continuity_locks") or {}),
+            metadata=dict(payload.get("metadata") or {}),
+        )
+        return cls(bibles=[bible])
+
+    def _merge_locks(self, locks: Dict[str, Any]) -> None:
+        for key, value in locks.items():
+            if (
+                isinstance(value, dict)
+                and isinstance(self.continuity_locks.get(key), dict)
+            ):
+                self.continuity_locks[key].update(value)
+            else:
+                self.continuity_locks[key] = value
+
+
+class AssetRegistry:
+    """Entity registry for reusable props and costumes in a production bible."""
+
+    def __init__(
+        self,
+        props: Optional[Iterable[PropAsset]] = None,
+        costumes: Optional[Iterable[CostumeAsset]] = None,
+        bibles: Optional[Iterable[ProductionBible]] = None,
+    ):
+        self._props: Dict[str, PropAsset] = {}
+        self._costumes: Dict[str, CostumeAsset] = {}
+        self._bibles: Dict[str, ProductionBible] = {}
+        self.continuity_locks: Dict[str, Any] = {}
+        for prop in props or []:
+            self.add_prop(prop)
+        for costume in costumes or []:
+            self.add_costume(costume)
+        for bible in bibles or []:
+            self.add_bible(bible)
+
+    def add_prop(self, prop: PropAsset) -> PropAsset:
+        self._props[prop.id] = prop
+        return prop
+
+    def add_costume(self, costume: CostumeAsset) -> CostumeAsset:
+        self._costumes[costume.id] = costume
+        return costume
+
+    def add_bible(self, bible: ProductionBible) -> ProductionBible:
+        self._bibles[bible.id] = bible
+        self._merge_locks(bible.continuity_locks)
+        for prop in bible.props:
+            prop.metadata.setdefault("bible_id", bible.id)
+            prop.metadata.setdefault("bible_version", bible.version)
+            self.add_prop(prop)
+        for costume in bible.costumes:
+            costume.metadata.setdefault("bible_id", bible.id)
+            costume.metadata.setdefault("bible_version", bible.version)
+            self.add_costume(costume)
+        return bible
+
+    def get_prop(self, prop_id: str) -> Optional[PropAsset]:
+        return self._props.get(prop_id)
+
+    def get_costume(self, costume_id: str) -> Optional[CostumeAsset]:
+        return self._costumes.get(costume_id)
+
+    def require_prop(self, prop_id: str) -> PropAsset:
+        prop = self.get_prop(prop_id)
+        if not prop:
+            raise KeyError(f"Unknown prop asset: {prop_id}")
+        return prop
+
+    def require_costume(self, costume_id: str) -> CostumeAsset:
+        costume = self.get_costume(costume_id)
+        if not costume:
+            raise KeyError(f"Unknown costume asset: {costume_id}")
+        return costume
+
+    def resolve_props(self, prop_ids: Iterable[str]) -> List[PropAsset]:
+        return [self.require_prop(prop_id) for prop_id in prop_ids]
+
+    def resolve_costumes(self, costume_ids: Iterable[str]) -> List[CostumeAsset]:
+        return [self.require_costume(costume_id) for costume_id in costume_ids]
+
+    @property
+    def bible_ids(self) -> List[str]:
+        return sorted(self._bibles)
+
+    @classmethod
+    def from_bible_file(cls, path: str | Path) -> "AssetRegistry":
+        data = _load_mapping_file(path)
+        payload = data.get("production_bible", data.get("asset_bible", data))
+        if not isinstance(payload, dict):
+            raise ValueError("Production Bible must be a mapping")
+
+        raw_props = payload.get("props") or []
+        raw_costumes = payload.get("costumes") or []
+        if not isinstance(raw_props, list):
+            raise ValueError("Production Bible props must be a list")
+        if not isinstance(raw_costumes, list):
+            raise ValueError("Production Bible costumes must be a list")
+
+        props = []
+        for item in raw_props:
+            if not isinstance(item, dict):
+                raise ValueError("Production Bible prop entries must be mappings")
+            prop_data = dict(item)
+            prop_data.setdefault("name", prop_data.get("id", ""))
+            props.append(PropAsset(**prop_data))
+
+        costumes = []
+        for item in raw_costumes:
+            if not isinstance(item, dict):
+                raise ValueError("Production Bible costume entries must be mappings")
+            costume_data = dict(item)
+            costume_data.setdefault("name", costume_data.get("id", ""))
+            costumes.append(CostumeAsset(**costume_data))
+
+        bible = ProductionBible(
+            id=payload.get("id", "production_bible"),
+            version=str(payload.get("version", "v1")),
+            props=props,
+            costumes=costumes,
             continuity_locks=dict(payload.get("continuity_locks") or {}),
             metadata=dict(payload.get("metadata") or {}),
         )
