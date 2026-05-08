@@ -32,7 +32,7 @@
 | 4. 架构实现 | 已完成 | 补齐 Script -> Story Graph -> Director Planner -> Film Core -> Final Editing 的可测试闭环 | 新增 `story_graph.py`、`director_planner.py`、`pipeline.py`、`final_editing.py` |
 | 5. 移除旧运行面品牌 | 已完成 | 前端品牌、页面标题、面包屑、Docker 容器名、数据目录、OSS 默认路径、README/手册/贡献指南改为 AIDrama/Jellyfish-oriented | 全仓运行面关键词检查；删除旧前端图片资源 |
 | 6. 测试补齐 | 已完成 | 新增端到端 Film Production Pipeline 测试，覆盖 Story Graph、Director Planner、Final Editing unresolved 输出 | `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s` |
-| 7. 运行验证与提交推送 | 已完成 | 已完成前端/容器/Jellyfish 参考启动验证、清理工作区、冲突检查、提交并 push | `e7838981` 已推送，最终进度索引补记中 |
+| 7. 运行验证与提交推送 | 已完成 | 已完成前端/容器/Jellyfish 参考启动验证、清理工作区、冲突检查、提交并 push | `e7838981` 已推送，进度索引已补记 |
 
 ## Jellyfish 核对记录
 
