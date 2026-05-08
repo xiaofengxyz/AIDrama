@@ -24,7 +24,7 @@
 | 4. 页面实现 | 已完成 | 新增 `9. QA & Export` Film Engine 控制台，自动 dry-run 当前项目并展示九阶段状态、QA、Retry、Ledger、Final Edit、导出动作 | `frontend/src/components/modules/FilmEngineControlRoom.tsx` |
 | 5. API 契约增强 | 已完成 | `/film/pipeline/run` 响应补充 `film_run.shot_graph`，让 Shot Graph 阶段在页面和测试中可见 | `tests/test_film_pipeline_api.py` |
 | 6. 测试补齐 | 已完成 | 新增前端 Film Engine payload/九阶段评估单测，补充测试用例文档；Docker 重建后容器内核心和全量后端测试通过 | `npm run test`、`npm run test:ui`、`npx tsc --noEmit`、`pytest` |
-| 7. 清理提交推送 | 已完成 | 已完成最终验证、冲突检查和本轮提交；等待 push 结果回填 | `git diff --check`、`git ls-files -u`、本轮提交 |
+| 7. 清理提交推送 | 已完成 | 已完成最终验证、冲突检查、提交并 push 到 `origin/main` | `git diff --check`、`git ls-files -u`、`git push origin main` |
 
 ## 九阶段完成体现
 
@@ -132,6 +132,7 @@ Starter Kit 固定九阶段为：Runtime、Director DSL、Shot Graph、Prompt Co
 - `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，136 passed，41 warnings。
 - `git diff --check`：通过。
 - `git ls-files -u`：无输出，无未解决冲突。
+- `git push origin main`：已推送 `1d316f49 Expose film engine QA control room` 到 `origin/main`。
 
 以下为此前会话验证记录，保留用于交接追溯：
 
