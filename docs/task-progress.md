@@ -101,6 +101,7 @@
 - `git ls-files -u`：无输出，无未解决冲突。
 - `git fetch origin` + `git status --short --branch`：本地 `main` 未落后 `origin/main`。
 - `git commit -m "Add film asset bible pipeline API"`：已创建本轮提交。
+- `git push origin main`：已推送本轮提交至 `origin/main`。
 
 以下为此前会话验证记录，保留用于交接追溯：
 
