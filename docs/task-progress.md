@@ -22,7 +22,7 @@
 | 2. API 兜底 | 已完成 | 新增 `GET /film/pipeline/run` 使用说明，避免浏览器直接访问返回 `Method Not Allowed` | `tests/test_film_pipeline_api.py`、`curl http://localhost:3014/film/pipeline/run` |
 | 3. 工作台入口 | 已完成 | 支持 `#/project/{id}/step/export` 与 `#/series/{seriesId}/episode/{episodeId}/step/export` 深链；系列单集页新增 `QA & Export` 直达按钮 | `frontend/src/lib/workspaceRouting.ts`、前端单测 |
 | 4. D1-D6 复核 | 已完成 | 按 D1-D6 验收矩阵复查核心实现和测试覆盖 | 后端核心 pytest、前端 vitest、tsc、容器全量 pytest |
-| 5. 文档与清理 | 进行中 | 更新测试用例文档、最终验证、冲突检查、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
+| 5. 文档与清理 | 已完成 | 更新测试用例文档、最终验证、冲突检查、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
 
 本轮 D1-D6 复核结论：
 
@@ -53,6 +53,9 @@
 - `curl -sS -X POST http://localhost:3014/film/pipeline/run ...`：HTTP 200，返回 story graph、shot graph、generation ledger、QA reports、final edit。
 - `docker compose exec -T backend python -m pytest -q -s /app/tests/test_film_engine_core.py /app/tests/test_film_engine_batch.py /app/tests/test_film_production_pipeline.py /app/tests/test_film_pipeline_api.py`：通过，20 passed。
 - `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，137 passed，41 warnings。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git push origin main`：已推送本轮必要修改到 `origin/main`。
 
 ### 2026-05-08 服务重启与九阶段可视化执行
 
