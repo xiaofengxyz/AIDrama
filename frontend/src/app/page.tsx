@@ -12,6 +12,7 @@ import AppShell from "@/components/layout/AppShell";
 import type { GlobalTab } from "@/components/layout/GlobalSidebar";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
+import { parseWorkspaceHash, type WorkbenchStepId } from "@/lib/workspaceRouting";
 
 const ProjectClient = dynamic(() => import("@/components/project/ProjectClient"), { ssr: false });
 const SeriesDetailPage = dynamic(() => import("@/components/series/SeriesDetailPage"), { ssr: false });
@@ -277,7 +278,15 @@ function SeriesCard({
 }
 
 // ── Episode Breadcrumb Wrapper ──
-function EpisodeBreadcrumbWrapper({ seriesId, episodeId }: { seriesId: string; episodeId: string }) {
+function EpisodeBreadcrumbWrapper({
+  seriesId,
+  episodeId,
+  initialStep,
+}: {
+  seriesId: string;
+  episodeId: string;
+  initialStep?: WorkbenchStepId;
+}) {
   const [seriesTitle, setSeriesTitle] = useState<string>("");
   const [episodeNumber, setEpisodeNumber] = useState<number | null>(null);
 
@@ -305,7 +314,7 @@ function EpisodeBreadcrumbWrapper({ seriesId, episodeId }: { seriesId: string; e
   ];
 
   return (
-    <ProjectClient id={episodeId} breadcrumbSegments={segments} />
+    <ProjectClient id={episodeId} breadcrumbSegments={segments} initialStep={initialStep} />
   );
 }
 
@@ -321,6 +330,7 @@ export default function Home() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [seriesId, setSeriesId] = useState<string | null>(null);
   const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [workbenchStep, setWorkbenchStep] = useState<WorkbenchStepId | null>(null);
   const [seriesEpisodes, setSeriesEpisodes] = useState<Record<string, Project[]>>({});
   const [episodesLoading, setEpisodesLoading] = useState(false);
   const projects = useProjectStore((state) => state.projects);
@@ -403,55 +413,62 @@ export default function Home() {
   // 监听 hash 变化
   useEffect(() => {
     const handleHashChange = () => {
-      const hash = window.location.hash;
-      // Match #/series/{id}/episode/{eid} first (more specific)
-      const seriesEpisodeMatch = hash.match(/^#\/series\/([^/]+)\/episode\/([^/]+)$/);
-      if (seriesEpisodeMatch) {
-        setSeriesId(seriesEpisodeMatch[1]);
-        setEpisodeId(seriesEpisodeMatch[2]);
+      const route = parseWorkspaceHash(window.location.hash);
+
+      if (route.view === 'series-episode') {
+        setSeriesId(route.seriesId);
+        setEpisodeId(route.episodeId);
         setProjectId(null);
+        setWorkbenchStep(route.stepId || null);
         setCurrentView('series-episode');
         return;
       }
-      // Match #/series/{id}
-      const seriesMatch = hash.match(/^#\/series\/([^/]+)$/);
-      if (seriesMatch) {
-        setSeriesId(seriesMatch[1]);
+
+      if (route.view === 'series') {
+        setSeriesId(route.seriesId);
         setEpisodeId(null);
         setProjectId(null);
+        setWorkbenchStep(null);
         setCurrentView('series');
         return;
       }
-      if (hash.startsWith('#/project/')) {
-        const id = hash.replace('#/project/', '');
-        setProjectId(id);
+
+      if (route.view === 'project') {
+        setProjectId(route.projectId);
         setSeriesId(null);
         setEpisodeId(null);
+        setWorkbenchStep(route.stepId || null);
         setCurrentView('project');
         return;
       }
-      if (hash === '#/library') {
+
+      if (route.view === 'library') {
         setCurrentView('library');
         setActiveTab('library');
         setProjectId(null);
         setSeriesId(null);
         setEpisodeId(null);
+        setWorkbenchStep(null);
         return;
       }
-      if (hash === '#/settings') {
+
+      if (route.view === 'settings') {
         setCurrentView('settings');
         setActiveTab('settings');
         setProjectId(null);
         setSeriesId(null);
         setEpisodeId(null);
+        setWorkbenchStep(null);
         return;
       }
+
       // Default: workspace
       setCurrentView('home');
       setActiveTab('workspace');
       setProjectId(null);
       setSeriesId(null);
       setEpisodeId(null);
+      setWorkbenchStep(null);
     };
 
     handleHashChange();
@@ -461,12 +478,12 @@ export default function Home() {
 
   // 项目详情页 — 全屏，无 GlobalSidebar
   if (currentView === 'project' && projectId) {
-    return <ProjectClient id={projectId} />;
+    return <ProjectClient id={projectId} initialStep={workbenchStep || undefined} />;
   }
 
   // 系列集数编辑 — 全屏，BreadcrumbBar 内嵌在 ProjectClient
   if (currentView === 'series-episode' && seriesId && episodeId) {
-    return <EpisodeBreadcrumbWrapper seriesId={seriesId} episodeId={episodeId} />;
+    return <EpisodeBreadcrumbWrapper seriesId={seriesId} episodeId={episodeId} initialStep={workbenchStep || undefined} />;
   }
 
   // 系列详情页 — 全屏，自带 BreadcrumbBar

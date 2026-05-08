@@ -14,6 +14,46 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-08 QA & Export 入口复核与 D1-D6 收口
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 现状复核 | 已完成 | 复核 `docs/task-progress.md`、`/film/pipeline/run`、项目/系列工作台路由和第 9 步页面 | `rg`、读取 `api.py`、`ProjectClient`、`SeriesDetailPage` |
+| 2. API 兜底 | 已完成 | 新增 `GET /film/pipeline/run` 使用说明，避免浏览器直接访问返回 `Method Not Allowed` | `tests/test_film_pipeline_api.py`、`curl http://localhost:3014/film/pipeline/run` |
+| 3. 工作台入口 | 已完成 | 支持 `#/project/{id}/step/export` 与 `#/series/{seriesId}/episode/{episodeId}/step/export` 深链；系列单集页新增 `QA & Export` 直达按钮 | `frontend/src/lib/workspaceRouting.ts`、前端单测 |
+| 4. D1-D6 复核 | 已完成 | 按 D1-D6 验收矩阵复查核心实现和测试覆盖 | 后端核心 pytest、前端 vitest、tsc、容器全量 pytest |
+| 5. 文档与清理 | 进行中 | 更新测试用例文档、最终验证、冲突检查、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
+
+本轮 D1-D6 复核结论：
+
+| 天 | 目标 | 当前结论 | 代码/测试锚点 |
+|---|---|---|---|
+| D1 | AIDrama/Jellyfish-oriented 工作台启动、品牌和路径清理 | 已实现，本轮继续验证入口可达性 | `frontend/src/app/page.tsx`、Docker nginx API 代理测试 |
+| D2 | Script -> Story Graph -> Director Planner 核心链路 | 已实现 | `src/film_engine/story_graph.py`、`director_planner.py`、`tests/test_film_production_pipeline.py` |
+| D3 | 角色/服装/道具/场景资产锁定 | 已实现 | `ProductionBible`、`AssetRegistry`、Film Core payload 测试 |
+| D4 | QA/Retry/Generation Ledger | 已实现 | `src/film_engine/qa.py`、`retry.py`、`ledger.py`、核心测试 |
+| D5 | Batch Production | 已实现 | `src/film_engine/batch.py`、`tests/test_film_engine_batch.py` |
+| D6 | Final Editing | 已实现 | `src/film_engine/final_editing.py`、Final Edit pipeline 测试 |
+
+如何进入项目工作台第 9 步：
+
+- 独立项目：点击首页项目卡片进入工作台；也可直接访问 hash `#/project/{projectId}/step/export`。
+- 系列项目（例如“星辰大海”）：先进入系列页，选择左侧某一集，在单集面板点击 `QA & Export`；也可直接访问 hash `#/series/{seriesId}/episode/{episodeId}/step/export`。
+- 只有“系列详情页”本身不会显示九步工作台；九步工作台属于“独立项目”或“系列单集”。
+
+本轮验证记录：
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py tests/test_film_pipeline_api.py -q -s`：宿主通过 17 passed，3 skipped（宿主缺 DashScope 时 API app 测试跳过）。
+- `cd frontend && npm run test`：通过，8 个测试文件，109 个测试。
+- `cd frontend && npm run test:ui`：通过，2 个测试文件，47 个测试。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建启动。
+- `curl -sS -i http://localhost:3014/film/pipeline/run`：HTTP 200，返回 GET 使用说明、固定九阶段和 sample payload。
+- `curl -sS -X POST http://localhost:3014/film/pipeline/run ...`：HTTP 200，返回 story graph、shot graph、generation ledger、QA reports、final edit。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests/test_film_engine_core.py /app/tests/test_film_engine_batch.py /app/tests/test_film_production_pipeline.py /app/tests/test_film_pipeline_api.py`：通过，20 passed。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，137 passed，41 warnings。
+
 ### 2026-05-08 服务重启与九阶段可视化执行
 
 | 阶段 | 状态 | 本轮动作 | 验收方式 |

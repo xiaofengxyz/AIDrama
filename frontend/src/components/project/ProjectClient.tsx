@@ -18,12 +18,21 @@ import FilmEngineControlRoom from "@/components/modules/FilmEngineControlRoom";
 import ModelSettingsModal from "@/components/common/ModelSettingsModal";
 import EnvConfigDialog from "@/components/project/EnvConfigDialog";
 import PromptConfigModal from "@/components/project/PromptConfigModal";
+import type { WorkbenchStepId } from "@/lib/workspaceRouting";
 import dynamic from "next/dynamic";
 
 const CreativeCanvas = dynamic(() => import("@/components/canvas/CreativeCanvas"), { ssr: false });
 
-export default function ProjectClient({ id, breadcrumbSegments }: { id: string; breadcrumbSegments?: BreadcrumbSegment[] }) {
-    const [activeStep, setActiveStep] = useState("script");
+export default function ProjectClient({
+    id,
+    breadcrumbSegments,
+    initialStep = "script",
+}: {
+    id: string;
+    breadcrumbSegments?: BreadcrumbSegment[];
+    initialStep?: WorkbenchStepId;
+}) {
+    const [activeStep, setActiveStep] = useState<WorkbenchStepId>(initialStep);
     const [modelSettingsOpen, setModelSettingsOpen] = useState(false);
     const [envDialogOpen, setEnvDialogOpen] = useState(false);
     const [promptConfigOpen, setPromptConfigOpen] = useState(false);
@@ -33,6 +42,10 @@ export default function ProjectClient({ id, breadcrumbSegments }: { id: string; 
 
     const handleBackToHome = () => {
         window.location.hash = '';
+    };
+
+    const handleStepChange = (stepId: string) => {
+        setActiveStep(stepId as WorkbenchStepId);
     };
 
     const steps = [
@@ -50,6 +63,10 @@ export default function ProjectClient({ id, breadcrumbSegments }: { id: string; 
     useEffect(() => {
         selectProject(id);
     }, [id, selectProject]);
+
+    useEffect(() => {
+        setActiveStep(initialStep);
+    }, [id, initialStep]);
 
     if (!currentProject) {
         return (
@@ -106,7 +123,7 @@ export default function ProjectClient({ id, breadcrumbSegments }: { id: string; 
             <div className="relative z-20 h-full flex flex-col overflow-hidden">
                 <PipelineSidebar
                     activeStep={activeStep}
-                    onStepChange={setActiveStep}
+                    onStepChange={handleStepChange}
                     steps={steps}
                     breadcrumbSegments={segments}
                     headerActions={settingsActions}

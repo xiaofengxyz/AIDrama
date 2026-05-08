@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import { Calendar, Trash2, Play } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Project } from "@/store/projectStore";
+import { buildProjectWorkbenchHash } from "@/lib/workspaceRouting";
 
 interface ProjectCardProps {
     project: Project;
@@ -11,10 +11,8 @@ interface ProjectCardProps {
 }
 
 export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
-    const router = useRouter();
-
     const handleOpen = () => {
-        window.location.hash = `#/project/${project.id}`;
+        window.location.hash = buildProjectWorkbenchHash(project.id);
     };
 
     const handleDelete = (e: React.MouseEvent) => {

@@ -55,6 +55,13 @@
 - `frontend/src/__tests__/film-engine.test.ts` 覆盖 payload 编译、分镜脚本回退、九阶段状态评估和指标汇总。
 - `requirements.txt`、`requirements-docker.txt` 固化 `pytest`，保证 Docker 后端容器重建后仍可直接执行回归测试。
 
+## 本次 QA & Export 入口加固
+
+- `src/apps/comic_gen/api.py` 新增 `GET /film/pipeline/run` 契约说明，浏览器直接访问 `http://localhost:3014/film/pipeline/run` 时返回使用方式、sample payload 和固定九阶段，不再表现为 405。
+- `frontend/src/lib/workspaceRouting.ts` 抽出工作台 hash 路由解析，支持独立项目 `#/project/{id}/step/export` 和系列单集 `#/series/{seriesId}/episode/{episodeId}/step/export`。
+- `frontend/src/components/series/SeriesDetailPage.tsx` 在单集面板增加 `QA & Export` 直达按钮，明确“系列详情页”和“单集项目工作台”的边界。
+- `frontend/src/__tests__/workspace-routing.test.ts` 覆盖项目/系列单集深链解析和构造，防止第 9 步入口再次只存在于文档里。
+
 ## 后续架构优化建议
 
 ### 模型接入

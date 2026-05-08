@@ -87,12 +87,16 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-022 | Film Engine payload | 当前项目含剧本、角色、场景、道具锁定 | 前端生成 dry-run payload，保留参考图、锁定 traits、continuity locks |
 | TC-023 | Film Engine 空脚本 | 项目没有原始剧本但已有分镜 | 前端从分镜生成 deterministic script，并保留 `[prop=...]` 标签 |
 | TC-024 | Film Engine 指标 | dry-run 成功返回 ledger、QA、final edit | 页面指标展示 beats、shots、accepted、failed、attempts、retries、QA、duration |
+| TC-025 | Film Core API 浏览器访问 | GET `/film/pipeline/run` | 返回 endpoint 使用说明、固定九阶段和 sample payload，不再返回 405 |
+| TC-026 | QA & Export 深链 | 访问 `#/project/{id}/step/export` 或 `#/series/{sid}/episode/{eid}/step/export` | 直接打开项目/单集工作台第 9 步 |
+| TC-027 | 系列单集入口 | 在系列详情页选择某一集并点击 `QA & Export` | 跳转到该集工作台并展示 `Industrial QA & Export` 控制台 |
 
 ## 本次九阶段可视化新增自动化测试
 
 | 文件 | 覆盖点 |
 |---|---|
 | `frontend/src/__tests__/film-engine.test.ts` | 前端 Film Core payload 构造、空脚本分镜回退、九阶段状态评估、控制台指标汇总 |
+| `frontend/src/__tests__/workspace-routing.test.ts` | 项目/系列单集工作台 hash 解析、QA & Export 深链构造 |
 | `tests/test_film_pipeline_api.py` | `/film/pipeline/run` 响应包含 `film_run.shot_graph`，Shot Graph 阶段不再只停留在后端内部 |
 
 新增验收命令：

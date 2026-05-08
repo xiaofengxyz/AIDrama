@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
-import { Image as ImageIcon, Play, ChevronRight } from "lucide-react";
+import { Image as ImageIcon, Play, ChevronRight, ShieldCheck } from "lucide-react";
 import { api } from "@/lib/api";
+import { buildSeriesEpisodeWorkbenchHash, type WorkbenchStepId } from "@/lib/workspaceRouting";
 import type { Series, Character, Scene, Prop, Project } from "@/store/projectStore";
 import AssetCard from "@/components/common/AssetCard";
 import SeriesSidebar, { type SidebarItem } from "./SeriesSidebar";
@@ -105,8 +106,8 @@ export default function SeriesDetailPage({ seriesId }: SeriesDetailPageProps) {
     if (e.key === "Escape") setShowAddEpisode(false);
   };
 
-  const handleOpenEpisode = (episodeId: string) => {
-    window.location.hash = `#/series/${seriesId}/episode/${episodeId}`;
+  const handleOpenEpisode = (episodeId: string, stepId?: WorkbenchStepId) => {
+    window.location.hash = buildSeriesEpisodeWorkbenchHash(seriesId, episodeId, stepId);
   };
 
   const refreshSeriesData = async () => {
@@ -196,8 +197,8 @@ export default function SeriesDetailPage({ seriesId }: SeriesDetailPageProps) {
             <EpisodeContentPanel
               key={`episode-${selectedEpisode.id}`}
               episode={selectedEpisode}
-              seriesId={seriesId}
               onOpenEditor={() => handleOpenEpisode(selectedEpisode.id)}
+              onOpenQaExport={() => handleOpenEpisode(selectedEpisode.id, "export")}
             />
           ) : null}
         </AnimatePresence>
@@ -315,12 +316,12 @@ function AssetContentPanel({
 
 function EpisodeContentPanel({
   episode,
-  seriesId,
   onOpenEditor,
+  onOpenQaExport,
 }: {
   episode: Project;
-  seriesId: string;
   onOpenEditor: () => void;
+  onOpenQaExport: () => void;
 }) {
   const frames = episode.frames || [];
 
@@ -333,7 +334,7 @@ function EpisodeContentPanel({
       className="flex-1 flex flex-col overflow-hidden"
     >
       {/* Header */}
-      <div className="px-8 pt-6 pb-4 flex items-start justify-between">
+      <div className="px-8 pt-6 pb-4 flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <span className="text-xs bg-primary/20 text-primary px-2.5 py-1 rounded-lg font-mono font-bold">
@@ -347,16 +348,27 @@ function EpisodeContentPanel({
             {frames.length} 分镜
           </p>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={onOpenEditor}
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-primary/20 hover:shadow-primary/30"
-        >
-          <Play size={14} />
-          进入编辑器
-          <ChevronRight size={14} />
-        </motion.button>
+        <div className="flex flex-wrap items-center gap-2">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onOpenQaExport}
+            className="flex items-center gap-2 border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-100 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <ShieldCheck size={14} />
+            QA & Export
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onOpenEditor}
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-lg shadow-primary/20 hover:shadow-primary/30"
+          >
+            <Play size={14} />
+            进入工作台
+            <ChevronRight size={14} />
+          </motion.button>
+        </div>
       </div>
 
       {/* Frames preview */}

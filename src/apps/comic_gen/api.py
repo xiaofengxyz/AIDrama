@@ -199,6 +199,37 @@ class FilmPipelineRunRequest(BaseModel):
     continuity_locks: Dict[str, Any] = Field(default_factory=dict)
 
 
+@app.get("/film/pipeline/run")
+async def describe_film_pipeline_run():
+    """Describe the Film Core run endpoint for browser and health-check access."""
+    return {
+        "status": "ready",
+        "endpoint": "/film/pipeline/run",
+        "method": "POST",
+        "message": "Use POST with script_text to run the Film Core dry-run pipeline.",
+        "default_backend": FilmRuntimeBackend.DRY_RUN.value,
+        "fixed_stages": [
+            "Runtime",
+            "Director DSL",
+            "Shot Graph",
+            "Prompt Compiler",
+            "Character Registry",
+            "Scene Registry",
+            "QA Engine",
+            "Retry Engine",
+            "Film State Engine",
+        ],
+        "sample_payload": {
+            "script_text": "INT. STUDIO\nNarrator: Dry-run the Film Engine.",
+            "graph_id": "sample_story",
+            "source_title": "Sample Story",
+            "backend": FilmRuntimeBackend.DRY_RUN.value,
+            "max_attempts": 2,
+            "min_score": 0.82,
+        },
+    }
+
+
 @app.post("/film/pipeline/run")
 async def run_film_pipeline(request: FilmPipelineRunRequest):
     """Run Script -> Story Graph -> Director Planner -> Film Core -> Final Editing.

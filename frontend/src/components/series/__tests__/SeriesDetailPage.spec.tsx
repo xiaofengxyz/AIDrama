@@ -36,6 +36,7 @@ vi.mock('lucide-react', () => ({
     ChevronLeft: (props: any) => <span data-testid="icon-chevron-left" {...props} />,
     ChevronRight: (props: any) => <span data-testid="icon-chevron-right" {...props} />,
     Play: (props: any) => <span data-testid="icon-play" {...props} />,
+    ShieldCheck: (props: any) => <span data-testid="icon-shield-check" {...props} />,
 }));
 
 // Mock AssetCard
@@ -101,6 +102,7 @@ function renderPage(seriesId = 'series-1') {
 describe('SeriesDetailPage', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        window.location.hash = '';
         mockGetSeries.mockResolvedValue(mockSeries);
         mockGetSeriesEpisodes.mockResolvedValue(mockEpisodes);
     });
@@ -228,7 +230,7 @@ describe('SeriesDetailPage', () => {
             });
         });
 
-        it('shows episode content panel when clicked, then navigates via button', async () => {
+        it('shows episode content panel when clicked, then navigates via workbench button', async () => {
             renderPage();
             await waitFor(() => {
                 expect(screen.getByText('第一集')).toBeInTheDocument();
@@ -236,11 +238,24 @@ describe('SeriesDetailPage', () => {
             // Click episode in sidebar to show preview
             fireEvent.click(screen.getByText('第一集'));
             await waitFor(() => {
-                expect(screen.getByText('进入编辑器')).toBeInTheDocument();
+                expect(screen.getByText('进入工作台')).toBeInTheDocument();
             });
-            // Click "进入编辑器" to navigate
-            fireEvent.click(screen.getByText('进入编辑器'));
+            // Click "进入工作台" to navigate
+            fireEvent.click(screen.getByText('进入工作台'));
             expect(window.location.hash).toBe('#/series/series-1/episode/ep-1');
+        });
+
+        it('navigates directly to the episode QA & Export step', async () => {
+            renderPage();
+            await waitFor(() => {
+                expect(screen.getByText('第一集')).toBeInTheDocument();
+            });
+            fireEvent.click(screen.getByText('第一集'));
+            await waitFor(() => {
+                expect(screen.getByText('QA & Export')).toBeInTheDocument();
+            });
+            fireEvent.click(screen.getByText('QA & Export'));
+            expect(window.location.hash).toBe('#/series/series-1/episode/ep-1/step/export');
         });
 
         it('shows episodes count in sidebar header', async () => {

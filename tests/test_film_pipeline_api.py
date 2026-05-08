@@ -15,6 +15,28 @@ else:
     app = None
 
 
+def test_film_pipeline_api_get_returns_usage_contract():
+    client = TestClient(app)
+    response = client.get("/film/pipeline/run")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["method"] == "POST"
+    assert data["default_backend"] == "dry_run"
+    assert "script_text" in data["sample_payload"]
+    assert data["fixed_stages"] == [
+        "Runtime",
+        "Director DSL",
+        "Shot Graph",
+        "Prompt Compiler",
+        "Character Registry",
+        "Scene Registry",
+        "QA Engine",
+        "Retry Engine",
+        "Film State Engine",
+    ]
+
+
 def test_film_pipeline_api_runs_dry_run_with_assets():
     client = TestClient(app)
     response = client.post(
