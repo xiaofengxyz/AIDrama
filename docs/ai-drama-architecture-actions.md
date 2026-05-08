@@ -46,6 +46,15 @@
 - `src/film_engine/batch.py` 增加 `BatchProductionRunner`，在 Film Core 内部以 deterministic 单进程方式执行多个 Director Program；后续接 Celery、Temporal、Argo 或自研队列时可以替换执行层，不改 DSL/QA/Retry/Ledger。
 - `tests/test_film_engine_batch.py` 覆盖成功批次汇总、单条失败隔离、优先级排序和 `max_items` 上限，避免“批量生产”退化成临时脚本。
 
+## 本次九阶段页面可视化
+
+- `frontend/src/components/project/ProjectClient.tsx` 将第 9 步从 `Export` Beta 调整为 `QA & Export`，作为 Film Engine 控制台入口。
+- `frontend/src/components/modules/FilmEngineControlRoom.tsx` 新增单项目 dry-run 控制台，把 Starter Kit 固定九阶段 Runtime、Director DSL、Shot Graph、Prompt Compiler、Character Registry、Scene Registry、QA Engine、Retry Engine、Film State Engine 显示到页面。
+- `frontend/src/lib/filmEngine.ts` 新增前端 Film Core payload 编译器和九阶段状态评估器。它从当前项目剧本、分镜、角色、场景、道具生成 `/film/pipeline/run` payload，保持 dry-run 默认不消耗模型预算。
+- `src/apps/comic_gen/api.py` 的 `/film/pipeline/run` 响应补充 `film_run.shot_graph`，让 Shot Graph 从内部对象变成 UI、测试和集成层都可观测的契约。
+- `frontend/src/__tests__/film-engine.test.ts` 覆盖 payload 编译、分镜脚本回退、九阶段状态评估和指标汇总。
+- `requirements.txt`、`requirements-docker.txt` 固化 `pytest`，保证 Docker 后端容器重建后仍可直接执行回归测试。
+
 ## 后续架构优化建议
 
 ### 模型接入

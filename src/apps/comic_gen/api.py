@@ -241,6 +241,7 @@ async def run_film_pipeline(request: FilmPipelineRunRequest):
                         "summary": production_run.film_run.generation_ledger.summary()
                         if production_run.film_run.generation_ledger
                         else {},
+                        "shot_graph": production_run.film_run.graph,
                         "final_state": production_run.film_run.final_state,
                         "qa_reports": production_run.film_run.qa_reports,
                     },

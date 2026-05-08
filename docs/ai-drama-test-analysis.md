@@ -81,5 +81,25 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 |---|---|---|---|
 | TC-017 | Production Bible | 加载道具/服装资产圣经并运行 Film Core | prompt、film state、ledger、final edit 都保留道具/服装和锁定信息 |
 | TC-018 | 剧本标签 | 剧本含 `[prop=...]`、`[costume=...]` | Story Graph 与 Director Program 继承资产引用，不丢失标签 |
-| TC-019 | Film Core API | 调用 `/film/pipeline/run` dry-run | 返回 story graph、director program、ledger summary、final edit |
+| TC-019 | Film Core API | 调用 `/film/pipeline/run` dry-run | 返回 story graph、director program、shot graph、ledger summary、final edit |
 | TC-020 | API 错误 | 剧本引用未注册道具 | 返回 400 与可读错误，不静默生成随机资产 |
+| TC-021 | 九阶段可视化 | 进入项目工作台 `9. QA & Export` | 页面显示 Runtime、Director DSL、Shot Graph、Prompt Compiler、Character Registry、Scene Registry、QA、Retry、Film State 九阶段 |
+| TC-022 | Film Engine payload | 当前项目含剧本、角色、场景、道具锁定 | 前端生成 dry-run payload，保留参考图、锁定 traits、continuity locks |
+| TC-023 | Film Engine 空脚本 | 项目没有原始剧本但已有分镜 | 前端从分镜生成 deterministic script，并保留 `[prop=...]` 标签 |
+| TC-024 | Film Engine 指标 | dry-run 成功返回 ledger、QA、final edit | 页面指标展示 beats、shots、accepted、failed、attempts、retries、QA、duration |
+
+## 本次九阶段可视化新增自动化测试
+
+| 文件 | 覆盖点 |
+|---|---|
+| `frontend/src/__tests__/film-engine.test.ts` | 前端 Film Core payload 构造、空脚本分镜回退、九阶段状态评估、控制台指标汇总 |
+| `tests/test_film_pipeline_api.py` | `/film/pipeline/run` 响应包含 `film_run.shot_graph`，Shot Graph 阶段不再只停留在后端内部 |
+
+新增验收命令：
+
+```bash
+cd frontend && npm run test
+cd frontend && npm run test:ui
+cd frontend && npx tsc --noEmit --pretty false
+python3 -m pytest tests/test_film_pipeline_api.py tests/test_film_production_pipeline.py -q -s
+```

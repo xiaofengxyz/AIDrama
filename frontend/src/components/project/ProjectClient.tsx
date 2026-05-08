@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Palette, Layout, Film, Share2, Mic, Music, BookOpen, Users, Video, Settings, Key, MessageSquareCode } from "lucide-react";
+import { Palette, Layout, Film, Mic, Music, BookOpen, Users, Video, Settings, Key, MessageSquareCode, ShieldCheck } from "lucide-react";
 import { useProjectStore } from "@/store/projectStore";
 import PipelineSidebar from "@/components/layout/PipelineSidebar";
 import type { BreadcrumbSegment } from "@/components/layout/BreadcrumbBar";
@@ -14,7 +14,7 @@ import ArtDirection from "@/components/modules/ArtDirection";
 import StoryboardComposer from "@/components/modules/StoryboardComposer";
 import VoiceActingStudio from "@/components/modules/VoiceActingStudio";
 import FinalMixStudio from "@/components/modules/FinalMixStudio";
-import ExportStudio from "@/components/modules/ExportStudio";
+import FilmEngineControlRoom from "@/components/modules/FilmEngineControlRoom";
 import ModelSettingsModal from "@/components/common/ModelSettingsModal";
 import EnvConfigDialog from "@/components/project/EnvConfigDialog";
 import PromptConfigModal from "@/components/project/PromptConfigModal";
@@ -44,7 +44,7 @@ export default function ProjectClient({ id, breadcrumbSegments }: { id: string; 
         { id: "assembly", label: "6. Assembly", icon: Film },
         { id: "audio", label: "7. Voice", icon: Mic, comingSoon: true },
         { id: "mix", label: "8. Final Mix", icon: Music, comingSoon: true },
-        { id: "export", label: "9. Export", icon: Share2, comingSoon: true },
+        { id: "export", label: "9. QA & Export", icon: ShieldCheck },
     ];
 
     useEffect(() => {
@@ -143,7 +143,7 @@ export default function ProjectClient({ id, breadcrumbSegments }: { id: string; 
                     {activeStep === "assembly" && <VideoAssembly />}
                     {activeStep === "audio" && <VoiceActingStudio />}
                     {activeStep === "mix" && <FinalMixStudio />}
-                    {activeStep === "export" && <ExportStudio />}
+                    {activeStep === "export" && <FilmEngineControlRoom />}
                 </div>
 
                 {/* Right Sidebar - Contextual Inspector */}

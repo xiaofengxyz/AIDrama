@@ -14,6 +14,38 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-08 服务重启与九阶段可视化执行
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 现状复核 | 已完成 | 复核 git、Docker 服务、Film Core API、前端九步工作台和九阶段 Starter Kit 固定开发顺序 | `git status --short --branch`、读取 `ProjectClient`、`/film/pipeline/run` |
+| 2. 服务重启 | 已完成 | 电脑重启后重新构建并启动 `aidrama-backend`、`aidrama-frontend` | `docker compose up -d --build --remove-orphans`、`docker compose ps`、`curl` |
+| 3. 缺口确认 | 已完成 | 确认九阶段内核已在后端实现，但页面没有九阶段可视化入口，`9. Export` 仍是 Beta 观感 | 前端侧栏与 `ExportStudio` 代码复核 |
+| 4. 页面实现 | 已完成 | 新增 `9. QA & Export` Film Engine 控制台，自动 dry-run 当前项目并展示九阶段状态、QA、Retry、Ledger、Final Edit、导出动作 | `frontend/src/components/modules/FilmEngineControlRoom.tsx` |
+| 5. API 契约增强 | 已完成 | `/film/pipeline/run` 响应补充 `film_run.shot_graph`，让 Shot Graph 阶段在页面和测试中可见 | `tests/test_film_pipeline_api.py` |
+| 6. 测试补齐 | 已完成 | 新增前端 Film Engine payload/九阶段评估单测，补充测试用例文档；Docker 重建后容器内核心和全量后端测试通过 | `npm run test`、`npm run test:ui`、`npx tsc --noEmit`、`pytest` |
+| 7. 清理提交推送 | 已完成 | 已完成最终验证、冲突检查和本轮提交；等待 push 结果回填 | `git diff --check`、`git ls-files -u`、本轮提交 |
+
+## 九阶段完成体现
+
+Starter Kit 固定九阶段为：Runtime、Director DSL、Shot Graph、Prompt Compiler、Character Registry、Scene Registry、QA Engine、Retry Engine、Film State Engine。
+
+当前状态：九阶段内核已完成可测试闭环；本轮把它们从“后端和文档里完成”推进到“页面可见”。进入项目工作台后，左侧点击 `9. QA & Export`，页面会自动调用 `/film/pipeline/run` dry-run，并显示九阶段逐项状态、镜头数、QA 分、重试次数、生成台账和 Final Edit clips。
+
+本轮页面映射：
+
+| 九阶段 | 页面体现 | 后端/测试体现 |
+|---|---|---|
+| Runtime | Runtime 状态行、backend 与 attempt 数 | `RuntimeRouter`、`DryRunRuntimeAdapter` |
+| Director DSL | Director Program shot 数 | `DirectorPlanner`、`DirectorDSLParser` |
+| Shot Graph | Shot Graph 节点和 transition 数 | `film_run.shot_graph`、`ShotGraphBuilder` |
+| Prompt Compiler | Ledger 中 prompt fingerprint | `PromptCompiler`、`GenerationLedger` |
+| Character Registry | tracked characters 与 continuity locks | `CharacterRegistry`、角色锁定测试 |
+| Scene Registry | tracked scenes 与场景连续性 | `SceneRegistry`、场景锁定测试 |
+| QA Engine | QA Reports 与 average score | `QAEngine`、QA report 测试 |
+| Retry Engine | retry attempt 数与 policy | `RetryEngine`、失败重试测试 |
+| Film State Engine | continuity timeline events | `FilmStateEngine`、final_state 测试 |
+
 ### 2026-05-08 本次复核执行
 
 | 阶段 | 状态 | 本轮动作 | 验收方式 |
@@ -82,6 +114,27 @@
 
 ## 当前验证记录
 
+- `docker compose up -d --build --remove-orphans`：通过，电脑重启后已重建并启动 `aidrama-backend`、`aidrama-frontend`。
+- `docker compose ps`：`aidrama-backend`、`aidrama-frontend` 均 Up。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl -sS http://localhost:3014/projects/`：HTTP 200，返回 `[]`。
+- `curl -sS http://localhost:3014/series`：HTTP 200，返回现有系列 JSON。
+- `curl -sS http://localhost:17177/config/info`：HTTP 200。
+- `curl -sS -X POST http://localhost:3014/film/pipeline/run ...`：HTTP 200，返回 `film_run.shot_graph`、`accepted_shots`、`final_edit`，验证九阶段控制台所需契约和 nginx `/film/` 代理。
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py`：通过。
+- `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py tests/test_film_pipeline_api.py -q -s`：通过，17 passed，2 skipped（宿主缺 DashScope 时 API app 测试跳过）。
+- `cd frontend && npm run test`：通过，7 个测试文件，106 个测试。
+- `cd frontend && npm run test:ui`：通过，2 个测试文件，46 个测试。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `cd frontend && npm run build`：通过；仅保留 Next static export 下既有 rewrites warning。
+- `docker compose exec -T backend python -m pytest --version`：`pytest 9.0.3`，已随 Docker requirements 固化。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests/test_film_engine_core.py /app/tests/test_film_engine_batch.py /app/tests/test_film_production_pipeline.py /app/tests/test_film_pipeline_api.py`：通过，19 passed。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，136 passed，41 warnings。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+
+以下为此前会话验证记录，保留用于交接追溯：
+
 - `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py`：通过。
 - `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s`：通过，17 个测试。
 - `python3 -m pytest tests/test_film_pipeline_api.py -q -s`：宿主缺 `dashscope`，2 个 API 测试按用例 skip，命令正常退出。
@@ -102,8 +155,6 @@
 - `git fetch origin` + `git status --short --branch`：本地 `main` 未落后 `origin/main`。
 - `git commit -m "Add film asset bible pipeline API"`：已创建本轮提交。
 - `git push origin main`：已推送本轮提交至 `origin/main`。
-
-以下为此前会话验证记录，保留用于交接追溯：
 
 - `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py src/utils/oss_utils.py src/utils/media_refs.py`：通过。
 - `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s`：通过，15 个测试。

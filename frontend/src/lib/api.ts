@@ -77,6 +77,53 @@ export interface FilmPipelineRunPayload {
     continuity_locks?: Record<string, unknown>;
 }
 
+export interface FilmPipelineRunResponse {
+    story_graph: {
+        graph_id: string;
+        source_title?: string;
+        beats: unknown[];
+        edges?: unknown[];
+        adjacency?: Record<string, string[]>;
+        metadata?: Record<string, unknown>;
+    };
+    director_program: {
+        sequence_id: string;
+        scene?: Record<string, unknown>;
+        characters?: string[];
+        props?: string[];
+        costumes?: string[];
+        shots: unknown[];
+        transitions?: unknown[];
+        metadata?: Record<string, unknown>;
+    };
+    film_run: {
+        summary: Record<string, unknown>;
+        shot_graph?: {
+            sequence_id: string;
+            shots: unknown[];
+            transitions?: unknown[];
+            adjacency?: Record<string, string[]>;
+            metadata?: Record<string, unknown>;
+        };
+        final_state?: Record<string, any>;
+        qa_reports?: any[];
+    };
+    generation_ledger?: {
+        sequence_id?: string;
+        shot_runs?: Record<string, any>;
+        metadata?: Record<string, unknown>;
+    };
+    final_edit?: {
+        sequence_id?: string;
+        clips?: any[];
+        total_duration?: number;
+        unresolved_shots?: string[];
+        qa_summary?: Record<string, unknown>;
+        metadata?: Record<string, unknown>;
+    };
+    metadata?: Record<string, any>;
+}
+
 export interface VideoTask {
     id: string;
     project_id: string;
@@ -99,7 +146,7 @@ export interface VideoTask {
 }
 
 export const api = {
-    runFilmPipeline: async (payload: FilmPipelineRunPayload) => {
+    runFilmPipeline: async (payload: FilmPipelineRunPayload): Promise<FilmPipelineRunResponse> => {
         const res = await axios.post(`${API_URL}/film/pipeline/run`, payload);
         return res.data;
     },

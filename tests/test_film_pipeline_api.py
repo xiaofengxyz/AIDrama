@@ -63,6 +63,8 @@ def test_film_pipeline_api_runs_dry_run_with_assets():
     assert data["story_graph"]["graph_id"] == "api_story"
     assert data["director_program"]["props"] == ["evidence_phone"]
     assert data["director_program"]["costumes"] == ["blue_raincoat"]
+    assert data["film_run"]["shot_graph"]["sequence_id"] == "api_story"
+    assert data["film_run"]["shot_graph"]["shots"][0]["prop_ids"] == ["evidence_phone"]
     assert data["film_run"]["summary"]["accepted_shots"] == 1
     assert data["final_edit"]["clips"][0]["prop_ids"] == ["evidence_phone"]
     assert data["final_edit"]["clips"][0]["costume_ids"] == ["blue_raincoat"]
