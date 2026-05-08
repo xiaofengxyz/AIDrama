@@ -22,7 +22,7 @@
 | 4. 架构实现 | 已完成 | 补齐 Script -> Story Graph -> Director Planner -> Film Core -> Final Editing 的可测试闭环 | 新增 `story_graph.py`、`director_planner.py`、`pipeline.py`、`final_editing.py` |
 | 5. 移除旧运行面品牌 | 已完成 | 前端品牌、页面标题、面包屑、Docker 容器名、数据目录、OSS 默认路径、README/手册/贡献指南改为 AIDrama/Jellyfish-oriented | 全仓运行面关键词检查；删除旧前端图片资源 |
 | 6. 测试补齐 | 已完成 | 新增端到端 Film Production Pipeline 测试，覆盖 Story Graph、Director Planner、Final Editing unresolved 输出 | `python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s` |
-| 7. 运行验证与提交推送 | 进行中 | 已完成前端/容器/Jellyfish 参考启动验证；继续清理工作区、解决冲突、提交并 push | 待记录提交和 push |
+| 7. 运行验证与提交推送 | 已完成 | 已完成前端/容器/Jellyfish 参考启动验证、清理工作区、冲突检查、提交并 push | `e7838981` 已推送，最终进度索引补记中 |
 
 ## Jellyfish 核对记录
 
@@ -78,6 +78,8 @@
 - Jellyfish 外部参考：`docker compose --env-file external/jellyfish/deploy/compose/.env -f external/jellyfish/deploy/compose/docker-compose.yml config --quiet` 通过；完整 `up -d --build` 失败在 `deb.debian.org` apt 索引 502/404，未启动容器。
 - `git diff --check`：通过。
 - `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Align AIDrama with Jellyfish film engine base"`：已创建提交 `e7838981`。
+- `git push`：已推送 `main`，`25d2abcd..e7838981`。
 
 ## 当前技术选择
 
