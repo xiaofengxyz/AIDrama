@@ -22,7 +22,7 @@
 | 2. 模板入口实现 | 已完成 | 把 3 个 60-90 秒样片和 5 集验证蓝图从 `samples/` 暴露到后端 API 与首页可见模板中心 | 后端 API 测试、前端模板中心测试 |
 | 3. 测试工程复核 | 已完成 | 补充模板目录、模板实例化、首页入口、手册路径的自动化与文档测试记录 | pytest、vitest、tsc、Docker/curl 冒烟 |
 | 4. 用户操作手册 | 已完成 | 说明当前 UI 不是 LumenX、模板在哪里看、从配置到多集出片怎么操作 | `USER_MANUAL.md`、`docs/ai-drama-test-analysis.md` |
-| 5. 清理提交推送 | 进行中 | 重建重启服务、冲突检查、清理工作区并按需提交推送 | `git diff --check`、`git ls-files -u`、`git push` |
+| 5. 清理提交推送 | 已完成 | 重建重启服务、冲突检查、清理工作区并按需提交推送 | `git diff --check`、`git ls-files -u`、`git push origin main` |
 
 本轮初步结论：
 
@@ -45,6 +45,10 @@
 - `docker run --rm aidrama-frontend:latest ... grep 'AI 漫剧模板中心'`：通过，构建产物包含模板中心。
 - `docker run --rm aidrama-frontend:latest ... grep 'LumenX|lumenx|Lumen'`：通过，构建后的前端无旧品牌字符串。
 - `docker cp tests aidrama-backend:/app/tests && docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，146 passed，72 warnings。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Expose AI drama templates in Studio"`：已创建提交 `6dbd709f`。
+- `git push origin main`：已推送本轮必要修改到 `origin/main`。
 
 ### 2026-05-09 D7 样片模板、使用手册与 LumenX 运行面清理复核
 
