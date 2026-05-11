@@ -1,6 +1,6 @@
 # 架构分析与本轮工程动作
 
-日期：2026-05-07
+日期：2026-05-12
 
 ## 当前架构判断
 
@@ -61,6 +61,17 @@
 - `frontend/src/lib/workspaceRouting.ts` 抽出工作台 hash 路由解析，支持独立项目 `#/project/{id}/step/export` 和系列单集 `#/series/{seriesId}/episode/{episodeId}/step/export`。
 - `frontend/src/components/series/SeriesDetailPage.tsx` 在单集面板增加 `QA & Export` 直达按钮，明确“系列详情页”和“单集项目工作台”的边界。
 - `frontend/src/__tests__/workspace-routing.test.ts` 覆盖项目/系列单集深链解析和构造，防止第 9 步入口再次只存在于文档里。
+
+## 本次 CineForge 工作流与导出兜底
+
+- `src/film_engine/workflow.py` 增加 workflow-first 状态层，固定 Novel Engine、Asset Pipeline、Storyboard、Image Runtime、Video Runtime、Voice Runtime、Composition、QA & Retry、Export 九个可恢复生产阶段。
+- 工作流状态按项目持久化到 `output/workflow_state.json`，并保留 `WorkflowEditEvent`，支持后续把编辑/重生成意图接入队列、任务中心或 Jellyfish 工作流系统。
+- `GET /projects/{projectId}/workflow` 返回当前项目的阶段状态、阻塞项、下一步动作、模型建议和导出模式。
+- `POST /projects/{projectId}/workflow/stages/{stageId}/regenerate` 记录阶段级重生成意图，先保持 state-only，不把 UI 硬绑定到某个供应商任务。
+- `GET /film/runtime/recommendations` 输出百炼优先模型目录：文本用 `qwen-plus`，当前图片链路用 `wan2.6-image`、后续优先 `wan2.7-image(-pro)`，当前视频链路用 `wan2.6-i2v/r2v`、后续优先 `wan2.7-i2v/r2v`，配音用 CosyVoice，合成用 FFmpeg。
+- `/projects/{projectId}/export` 不再在缺少 selected video 时只返回泛化失败；现在 `Start Render` 有素材则合成 mp4，缺素材则导出 `mode=render_package` 的 JSON manifest，包含 workflow state、阻塞项、模型建议和 frame 级媒体引用。
+- `frontend/src/components/modules/FilmEngineControlRoom.tsx` 新增 CineForge Workflow readiness 面板，并展示 render package warnings/action_required，让制作人能知道下一步该补资产、分镜、视频、配音还是合成。
+- `tests/test_film_workflow.py` 和 `frontend/src/__tests__/workflow-api.test.ts` 覆盖工作流状态、render package、模型建议和前端错误 detail 透传。
 
 ## 本次 D7 样片与系列模板补齐
 

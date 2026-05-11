@@ -1,6 +1,6 @@
 # AIDrama Studio 用户操作手册
 
-日期：2026-05-11
+日期：2026-05-12
 
 本手册面向 2-3 人 AI 漫剧小团队，目标是从零配置环境，到做出一部多集 AI 漫剧的可复盘生产流程。
 
@@ -30,8 +30,10 @@
 | 3 个 60-90 秒样片模板 | 已完成 | 首页“AI 漫剧模板中心”、`samples/pilot_samples/three_60_90s_pilots.yaml` |
 | 真实视频生成 | 已具备应用层入口 | UI 视频生成步骤，依赖供应商 Key 和额度 |
 | Film Core 多供应商真实 Runtime | 抽象已完成，适配器按供应商继续扩展 | `RuntimeRouter` |
+| CineForge 工作流状态 | 已完成 | `GET /projects/{id}/workflow`、第 9 步 QA & Export |
+| Start Render 兜底导出 | 已完成 | 有选中视频时导出 mp4；缺视频时导出 render package |
 
-结论：文档要求的工业级“可测试闭环”已经完成；真实出片仍需要配置模型 Key，并在 UI 的图片/视频/配音/合成步骤里实际调用模型。
+结论：文档要求的工业级“可测试闭环”已经完成，且工作流状态、可编辑/可重生成意图、QA/Retry 和导出兜底已经持久化。真实出片仍需要配置模型 Key，并在 UI 的图片、视频、配音、合成步骤里实际调用模型。
 
 ## 2. 本机准备
 
@@ -63,11 +65,23 @@ bash scripts/bootstrap_env.sh
 
 ## 3. 配置模型和存储
 
+先回答制作侧最关心的问题：补资产、分镜、视频、配音和合成都需要不同运行时。
+
+| 环节 | 是否需要模型 | 当前建议 |
+|---|---|---|
+| 剧本/拆集/对白润色 | 需要文本模型 | 先用百炼 `qwen-plus` 或同级模型 |
+| 角色/场景/道具/服装资产 | 需要图片模型 | 当前可用 `wan2.6-image`；后续优先补 `wan2.7-image-pro` / `wan2.7-image` 适配 |
+| 分镜关键帧/图像编辑 | 需要图片或图像编辑模型 | 当前用 `wan2.6-image` / I2I 链路，先把关键帧锁住 |
+| 图生视频/参考生视频 | 需要视频模型 | 当前可用 `wan2.6-i2v` / `wan2.6-r2v`；后续补 `wan2.7-i2v-2026-04-25`、`wan2.7-r2v` |
+| 配音 | 需要 TTS 模型 | 当前用 CosyVoice，日常用 `cosyvoice-v3-flash`，终版可用 `cosyvoice-v3-plus` / `cosyvoice-v3.5-plus` |
+| 合成导出 | 不需要生成模型 | 本地 FFmpeg 合成；缺素材时导出 render package |
+
 最低成本建议：
 
-- 编剧/分析：`qwen-plus` 或同级低成本文本模型。
-- 图片/视频：先用 DashScope/Wanx 跑通，关键镜头再升级其它视频模型。
-- 配音：先用可用 TTS，角色声音稳定后再做精配。
+- 编剧/分析：先用 `qwen-plus`，不要在大纲阶段消耗视频预算。
+- 图片：先用百炼万相把角色、服装、场景、道具定稿，关键资产再升高质量。
+- 视频：先用 `wan2.6-i2v` 或 `wan2.6-r2v` 跑通当前代码链路；后续把 `wan2.7` 作为优先升级目标。
+- 配音：先用 `cosyvoice-v3-flash` 批量试音，最终角色再做精品音色或复刻。
 - 存储：本地优先；多人协作或云端备份时再开 OSS。
 
 常用环境变量：
@@ -78,6 +92,14 @@ bash scripts/bootstrap_env.sh
 | `DASHSCOPE_API_BASE_URL` | DashScope 兼容 base url，可选 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 | `OSS_BUCKET_NAME` | OSS Bucket，可选 | `my-aidrama-bucket` |
 | `OSS_BASE_PATH` | OSS 路径前缀，可选 | `aidrama` |
+
+第 9 步还会读取模型建议目录：
+
+```bash
+curl -sS http://localhost:17177/film/runtime/recommendations
+```
+
+这个接口不会消耗模型额度，它只告诉你每个阶段推荐使用哪个模型、需要哪些环境变量，以及哪些适配器是“当前可用”还是“后续升级”。
 
 配置完成后启动：
 
@@ -233,6 +255,14 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 
 第 9 步默认 dry-run，不消耗视频模型额度，适合在真实生成前做结构验收。
 
+页面还会读取当前项目的 CineForge 工作流状态：
+
+```bash
+curl -sS http://localhost:17177/projects/{projectId}/workflow
+```
+
+工作流会显示 9 个生产阶段：Novel Engine、Asset Pipeline、Storyboard、Image Runtime、Video Runtime、Voice Runtime、Composition、QA & Retry、Export。每个阶段都有状态、阻塞项、下一步动作和模型建议。
+
 ### 4.8 合成导出
 
 当每个镜头都有选中的视频候选：
@@ -243,6 +273,13 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 4. 保存镜头台账和 QA 结果。
 
 如果 Final Edit 报 `unresolved_shots`，说明还有镜头没有 selected output，要回到视频候选选择步骤补齐。
+
+现在第 9 步 `Start Render` 有两个结果：
+
+- `mode=video`：所有分镜都有选中视频，后端用 FFmpeg 合成 mp4，页面显示 Download。
+- `mode=render_package`：视频或音频还不完整，后端不再报 `failed to export project`，而是导出一个 JSON render package。里面包含 workflow state、阻塞项、模型建议、每个 frame 的图片/视频/音频引用，方便继续生产或交接给剪辑。
+
+所以，缺素材时点击 `Start Render` 也能得到可恢复产物；真正成片仍需要先补齐每个镜头的 selected video。
 
 ### 4.9 推荐最快路径：从模板到 5 集样片
 
@@ -383,6 +420,22 @@ curl -sS -X POST http://localhost:17177/film/pipeline/run \
 - `film_run.qa_reports`
 - `final_edit`
 
+工作流状态：
+
+```bash
+curl -sS http://localhost:17177/projects/{projectId}/workflow
+```
+
+记录重生成意图：
+
+```bash
+curl -sS -X POST http://localhost:17177/projects/{projectId}/workflow/stages/video_runtime/regenerate \
+  -H 'Content-Type: application/json' \
+  -d '{"reason":"主角动作幅度太弱，重生成视频候选","dry_run":true}'
+```
+
+这一步只记录可恢复的编辑/重生成事件；具体生成仍从 UI 的资产、分镜、视频或配音步骤执行。
+
 ## 8. 如何解决行业痛点
 
 | 痛点 | 解决方式 |
@@ -395,6 +448,7 @@ curl -sS -X POST http://localhost:17177/film/pipeline/run \
 | 失败靠人工记忆 | QA Engine + Retry Engine 输出 finding 和 repair notes |
 | 批量生产混乱 | BatchProductionPlan、优先级、失败隔离、批次 summary |
 | 一上来烧钱 | dry-run、第 9 步结构验收、低清/短时长预检 |
+| 导出前素材不全 | `Start Render` 兜底导出 render package，不再只显示泛化失败 |
 
 ## 9. 团队分工建议
 

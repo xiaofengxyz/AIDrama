@@ -21,7 +21,7 @@ import {
     Upload,
 } from "lucide-react";
 import clsx from "clsx";
-import { api, type FilmPipelineRunResponse } from "@/lib/api";
+import { api, type FilmPipelineRunResponse, type WorkflowStatePayload } from "@/lib/api";
 import {
     buildFilmPipelinePayload,
     collectLedgerShotRuns,
@@ -55,6 +55,11 @@ export default function FilmEngineControlRoom() {
     const [isExporting, setIsExporting] = useState(false);
     const [exportUrl, setExportUrl] = useState<string | null>(currentProject?.merged_video_url || null);
     const [exportError, setExportError] = useState<string | null>(null);
+    const [exportMode, setExportMode] = useState<string | null>(currentProject?.merged_video_url ? "video" : null);
+    const [exportWarnings, setExportWarnings] = useState<string[]>([]);
+    const [exportActions, setExportActions] = useState<string[]>([]);
+    const [workflowState, setWorkflowState] = useState<WorkflowStatePayload | null>(null);
+    const [workflowError, setWorkflowError] = useState<string | null>(null);
     const [resolution, setResolution] = useState("1080p");
     const [format, setFormat] = useState("mp4");
     const [subtitles, setSubtitles] = useState("burn-in");
@@ -70,6 +75,16 @@ export default function FilmEngineControlRoom() {
     const qaReports = runResult?.film_run?.qa_reports || [];
     const finalClips = runResult?.final_edit?.clips || [];
 
+    const refreshWorkflow = useCallback(async (projectId: string) => {
+        setWorkflowError(null);
+        try {
+            const state = await api.getProjectWorkflow(projectId);
+            setWorkflowState(state);
+        } catch (error: any) {
+            setWorkflowError(error?.message || "Workflow state failed");
+        }
+    }, []);
+
     const runDryRun = useCallback(async () => {
         if (!payload) return;
         setIsRunning(true);
@@ -77,18 +92,28 @@ export default function FilmEngineControlRoom() {
         try {
             const result = await api.runFilmPipeline(payload);
             setRunResult(result);
+            if (currentProject?.id) {
+                void refreshWorkflow(currentProject.id);
+            }
         } catch (error: any) {
             setRunError(error?.response?.data?.detail || error?.message || "Film Engine run failed");
         } finally {
             setIsRunning(false);
         }
-    }, [payload]);
+    }, [payload, currentProject?.id, refreshWorkflow]);
 
     useEffect(() => {
         setExportUrl(currentProject?.merged_video_url || null);
+        setExportMode(currentProject?.merged_video_url ? "video" : null);
+        setExportWarnings([]);
+        setExportActions([]);
+        setWorkflowState(null);
         setRunResult(null);
         setRunError(null);
-    }, [currentProject?.id, currentProject?.merged_video_url]);
+        if (currentProject?.id) {
+            void refreshWorkflow(currentProject.id);
+        }
+    }, [currentProject?.id, currentProject?.merged_video_url, refreshWorkflow]);
 
     useEffect(() => {
         if (payload) {
@@ -100,9 +125,22 @@ export default function FilmEngineControlRoom() {
         if (!currentProject) return;
         setIsExporting(true);
         setExportError(null);
+        setExportWarnings([]);
+        setExportActions([]);
         try {
-            const result = await api.exportProject(currentProject.id, { resolution, format, subtitles });
+            const result = await api.exportProject(currentProject.id, {
+                resolution,
+                format,
+                subtitles,
+                allow_package_fallback: true,
+            });
             setExportUrl(result.url);
+            setExportMode(result.mode || "video");
+            setExportWarnings(result.warnings || []);
+            setExportActions(result.action_required || []);
+            if (result.workflow_state) {
+                setWorkflowState(result.workflow_state);
+            }
         } catch (error: any) {
             setExportError(error?.message || "Export failed");
         } finally {
@@ -213,6 +251,11 @@ export default function FilmEngineControlRoom() {
                                 {runError}
                             </div>
                         )}
+                        {workflowError && (
+                            <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                                {workflowError}
+                            </div>
+                        )}
                     </header>
 
                     <div className="flex-1 overflow-y-auto p-5 space-y-5">
@@ -236,6 +279,10 @@ export default function FilmEngineControlRoom() {
 
                         <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.2fr)_360px] gap-5">
                             <div className="space-y-5 min-w-0">
+                                {workflowState && (
+                                    <WorkflowReadiness workflowState={workflowState} />
+                                )}
+
                                 <div className="rounded-lg border border-white/10 bg-black/20">
                                     <div className="h-11 border-b border-white/10 px-4 flex items-center justify-between">
                                         <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -355,6 +402,25 @@ export default function FilmEngineControlRoom() {
                                             {isExporting ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
                                             {isExporting ? "Rendering" : "Start Render"}
                                         </button>
+                                        {exportMode && (
+                                            <div className="text-xs text-gray-400">
+                                                Output mode: <span className="text-gray-200">{exportMode === "render_package" ? "Render package" : "Video"}</span>
+                                            </div>
+                                        )}
+                                        {exportWarnings.length > 0 && (
+                                            <div className="space-y-1 text-xs text-amber-200 border border-amber-500/30 bg-amber-500/10 rounded-lg p-3">
+                                                {exportWarnings.map((warning) => (
+                                                    <div key={warning}>{warning}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {exportActions.length > 0 && (
+                                            <div className="space-y-1 text-xs text-gray-300 border border-white/10 bg-white/[0.04] rounded-lg p-3">
+                                                {exportActions.slice(0, 3).map((action) => (
+                                                    <div key={action}>{action}</div>
+                                                ))}
+                                            </div>
+                                        )}
                                         {exportError && (
                                             <div className="text-sm text-red-300 border border-red-500/30 bg-red-500/10 rounded-lg p-3">
                                                 {exportError}
@@ -364,10 +430,11 @@ export default function FilmEngineControlRoom() {
                                             <a
                                                 href={getAssetUrl(exportUrl)}
                                                 target="_blank"
+                                                rel="noreferrer"
                                                 className="w-full h-10 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-200 font-semibold flex items-center justify-center gap-2"
                                             >
                                                 <Download size={16} />
-                                                Download
+                                                {exportMode === "render_package" ? "Download Package" : "Download"}
                                             </a>
                                         )}
                                     </div>
@@ -396,6 +463,71 @@ export default function FilmEngineControlRoom() {
                         </div>
                     </div>
                 </section>
+            </div>
+        </div>
+    );
+}
+
+function WorkflowReadiness({ workflowState }: { workflowState: WorkflowStatePayload }) {
+    const summary = workflowState.summary || {};
+    return (
+        <div className="rounded-lg border border-white/10 bg-black/20">
+            <div className="h-11 border-b border-white/10 px-4 flex items-center justify-between">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <Route size={15} className="text-violet-300" />
+                    CineForge Workflow
+                </h3>
+                <span className="text-xs text-gray-500">{summary.recommended_render_mode || "dry-run"}</span>
+            </div>
+            <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {workflowState.stages.map((stage) => {
+                    const passed = stage.status === "passed";
+                    const blocked = stage.status === "blocked";
+                    const ready = stage.status === "ready";
+                    return (
+                        <div
+                            key={stage.id}
+                            className={clsx(
+                                "rounded-lg border p-3 bg-white/[0.04]",
+                                passed && "border-emerald-500/25",
+                                ready && "border-sky-500/25",
+                                blocked && "border-red-500/25",
+                                !passed && !ready && !blocked && "border-amber-500/25"
+                            )}
+                        >
+                            <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                    <div className="text-sm font-semibold truncate">{stage.order}. {stage.label}</div>
+                                    <div className="text-[11px] text-gray-500 mt-1 truncate">{stage.required_artifact}</div>
+                                </div>
+                                <span className={clsx(
+                                    "text-[10px] uppercase rounded px-1.5 py-0.5 border",
+                                    passed && "text-emerald-200 border-emerald-500/30 bg-emerald-500/10",
+                                    ready && "text-sky-200 border-sky-500/30 bg-sky-500/10",
+                                    blocked && "text-red-200 border-red-500/30 bg-red-500/10",
+                                    !passed && !ready && !blocked && "text-amber-200 border-amber-500/30 bg-amber-500/10"
+                                )}>
+                                    {stage.status}
+                                </span>
+                            </div>
+                            <div className="mt-3 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                                <div
+                                    className={clsx(
+                                        "h-full rounded-full",
+                                        passed ? "bg-emerald-400" : ready ? "bg-sky-400" : blocked ? "bg-red-400" : "bg-amber-400"
+                                    )}
+                                    style={{ width: `${Math.round((stage.progress || 0) * 100)}%` }}
+                                />
+                            </div>
+                            <div className="text-[11px] text-gray-400 mt-2 line-clamp-2">{stage.next_action}</div>
+                            {stage.model_recommendations?.[0] && (
+                                <div className="text-[11px] text-gray-500 mt-2 truncate">
+                                    {stage.model_recommendations[0].provider}: {stage.model_recommendations[0].model}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

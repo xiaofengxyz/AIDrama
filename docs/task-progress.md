@@ -14,6 +14,41 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-12 CineForge 工作流、模型建议与 QA Export 导出兜底
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 规范与故障复核 | 已完成 | 读取 `docs/Codex_Workflow_Prompts`、AGENTS 规则、QA & Export Start Render 链路 | `rg`、读取 `FilmEngineControlRoom`、`/projects/{id}/export`、`merge_videos` |
+| 2. 工作流状态实现 | 已完成 | 新增 workflow-first 状态层、模型建议目录、项目 workflow API、阶段重生成事件 | `tests/test_film_workflow.py`、`GET /projects/{id}/workflow` |
+| 3. 导出兜底实现 | 已完成 | `Start Render` 有 selected clips 时合成视频，缺 clips 时导出 render package，不再泛化失败 | `/projects/{id}/export`、前端 workflow API 测试 |
+| 4. UI 与文档 | 已完成 | QA & Export 增加 CineForge Workflow 面板、更新手册/测试文档/架构文档 | `frontend/src/components/modules/FilmEngineControlRoom.tsx`、`USER_MANUAL.md` |
+| 5. 验证清理提交推送 | 进行中 | 后端/前端/容器回归已通过，冲突检查已通过，准备提交并 push 必要修改 | pytest、vitest、tsc、docker、git |
+
+本轮初步结论：
+
+- “补资产、分镜、视频、配音和合成”确实需要不同 runtime：图片模型负责资产和分镜关键帧，视频模型负责 I2V/R2V/T2V，语音模型负责对白，合成优先用 FFmpeg 而不是生成模型。
+- 当前工程继续采用百炼优先：现有可运行适配器以 `wan2.6-image`、`wan2.6-i2v/r2v`、CosyVoice 为主；文档和模型目录把 `wan2.7-image(-pro)`、`wan2.7-i2v/r2v` 标为后续优先升级目标，避免 UI 暴露尚未完全适配的新协议。
+- `QA & Export` 的 `Start Render` 不再在缺视频时只显示 `failed to export project`；现在会返回 `mode=render_package`，下载 JSON manifest，包含 workflow state、阻塞项、模型建议和 frame 级媒体引用。
+- 新增 `GET /film/runtime/recommendations`、`GET /projects/{projectId}/workflow`、`POST /projects/{projectId}/workflow/stages/{stageId}/regenerate`，为 workflow state、可编辑/可重生成和后续队列接入留出稳定契约。
+
+本轮阶段性验证记录：
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py tests/test_film_workflow.py`：通过。
+- `python3 -m pytest tests/test_film_workflow.py -q -s`：通过，5 passed。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `python3 -m pytest tests/test_film_pipeline_api.py -q -s`：宿主缺 DashScope，9 skipped（保留容器内复测）。
+- `python3 -m pytest tests/test_film_workflow.py tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py tests/test_series_production_blueprint.py -q -s`：通过，28 passed。
+- `cd frontend && npm run test`：通过，10 个测试文件，116 个测试。
+- `cd frontend && npm run test:ui`：通过，3 个测试文件，49 个测试；错误态用例保留预期 stderr。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建并启动。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl http://localhost:3014/film/runtime/recommendations`：HTTP 200，返回 `cineforge_workflow.v1` 和百炼优先模型目录。
+- API 冒烟创建 `Workflow Export Smoke` 项目后调用 `/projects/{id}/workflow` 与 `/projects/{id}/export`：通过，workflow 9 阶段，导出返回 `mode=render_package` 与可下载 JSON。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests/test_film_workflow.py /app/tests/test_film_pipeline_api.py /app/tests/test_film_engine_core.py /app/tests/test_film_engine_batch.py /app/tests/test_film_production_pipeline.py /app/tests/test_series_production_blueprint.py`：通过，37 passed。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，154 passed，74 warnings。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+
 ### 2026-05-11 服务重启、模板可见入口与全链路使用手册复核
 
 | 阶段 | 状态 | 本轮动作 | 验收方式 |

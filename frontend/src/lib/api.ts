@@ -124,6 +124,51 @@ export interface FilmPipelineRunResponse {
     metadata?: Record<string, any>;
 }
 
+export interface RuntimeModelRecommendation {
+    provider: string;
+    model: string;
+    role: string;
+    use_when: string;
+    required_env?: string[];
+    integration_status?: string;
+    notes?: string[];
+}
+
+export interface WorkflowStageState {
+    id: string;
+    order: number;
+    label: string;
+    status: "blocked" | "ready" | "running" | "passed" | "attention" | string;
+    progress: number;
+    artifact_count: number;
+    required_count: number;
+    blockers: string[];
+    next_action: string;
+    ui_step: string;
+    required_artifact: string;
+    industry_pain_point: string;
+    model_recommendations: RuntimeModelRecommendation[];
+    metadata?: Record<string, unknown>;
+}
+
+export interface WorkflowStatePayload {
+    project_id: string;
+    title: string;
+    version: string;
+    stages: WorkflowStageState[];
+    summary: Record<string, any>;
+    edit_history?: unknown[];
+    metadata?: Record<string, unknown>;
+}
+
+export interface RenderExportResponse {
+    url: string;
+    mode?: "video" | "render_package" | string;
+    warnings?: string[];
+    action_required?: string[];
+    workflow_state?: WorkflowStatePayload;
+}
+
 export interface PilotSampleTemplate {
     sample_id: string;
     title: string;
@@ -709,8 +754,36 @@ export const api = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(options),
         });
-        if (!response.ok) throw new Error("Failed to export project");
-        return response.json();
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            const detail = data?.detail || data?.message || "Failed to export project";
+            throw new Error(detail);
+        }
+        return data as RenderExportResponse;
+    },
+
+    getProjectWorkflow: async (scriptId: string): Promise<WorkflowStatePayload> => {
+        const response = await fetch(`${API_URL}/projects/${scriptId}/workflow`);
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            const detail = data?.detail || data?.message || "Failed to fetch workflow state";
+            throw new Error(detail);
+        }
+        return data as WorkflowStatePayload;
+    },
+
+    regenerateWorkflowStage: async (scriptId: string, stageId: string, payload: { reason?: string; scope?: Record<string, unknown>; dry_run?: boolean }) => {
+        const response = await fetch(`${API_URL}/projects/${scriptId}/workflow/stages/${stageId}/regenerate`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            const detail = data?.detail || data?.message || "Failed to record regenerate request";
+            throw new Error(detail);
+        }
+        return data;
     },
 
     generateVideo: async (scriptId: string) => {

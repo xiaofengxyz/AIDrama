@@ -27,6 +27,16 @@ def isolated_client(monkeypatch, tmp_path):
     pipeline.scripts = {}
     pipeline.series_store = {}
     monkeypatch.setattr(api_module, "pipeline", pipeline)
+    monkeypatch.setattr(
+        api_module,
+        "workflow_store",
+        api_module.WorkflowStateStore(tmp_path / "workflow_state.json"),
+    )
+    monkeypatch.setattr(
+        api_module,
+        "render_package_exporter",
+        api_module.RenderPackageExporter(tmp_path / "export"),
+    )
     return TestClient(app)
 
 
@@ -139,6 +149,20 @@ def test_film_templates_api_returns_catalog():
     assert data["series_blueprints"][0]["id"] == "night_signal_s01"
 
 
+def test_runtime_recommendations_api_is_bailian_first():
+    """The model catalog should recommend Bailian runtimes before future adapters."""
+    client = TestClient(app)
+
+    response = client.get("/film/runtime/recommendations")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["provider_strategy"].startswith("Bailian-first")
+    stages = {stage["stage_id"]: stage for stage in data["stages"]}
+    assert stages["asset_pipeline"]["model_recommendations"][0]["model"] == "wan2.7-image-pro"
+    assert stages["voice_runtime"]["model_recommendations"][0]["model"] == "cosyvoice-v3-flash"
+
+
 def test_pilot_template_api_instantiates_draft_project(isolated_client):
     """A pilot template can be copied into an editable standalone draft project."""
     response = isolated_client.post(
@@ -171,3 +195,47 @@ def test_series_template_api_instantiates_five_episode_series(isolated_client):
     assert len(data["series"]["props"]) == 2
     assert len(data["episodes"]) == 5
     assert data["episodes"][0]["episode_number"] == 1
+
+
+def test_project_workflow_api_persists_stage_state(isolated_client):
+    """A Studio project should expose a recoverable CineForge workflow state."""
+    project = api_module.pipeline.create_project(
+        "Workflow API",
+        "INT. ROOM\nMaya: Keep it safe. [character=maya]",
+        True,
+    )
+
+    response = isolated_client.get(f"/projects/{project.id}/workflow")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["project_id"] == project.id
+    assert data["version"] == "cineforge_workflow.v1"
+    assert len(data["stages"]) == 9
+    assert data["summary"]["recommended_render_mode"] == "render_package"
+
+
+def test_export_api_falls_back_to_render_package_without_selected_videos(isolated_client):
+    """Start Render should not fail generically when the project has no selected clips."""
+    project = api_module.pipeline.create_project(
+        "Package Export",
+        "INT. ROOM\nMaya: The phone rang.",
+        True,
+    )
+
+    response = isolated_client.post(
+        f"/projects/{project.id}/export",
+        json={
+            "resolution": "1080p",
+            "format": "mp4",
+            "subtitles": "burn-in",
+            "allow_package_fallback": True,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "render_package"
+    assert data["url"].startswith("export/")
+    assert data["workflow_state"]["summary"]["recommended_render_mode"] == "render_package"
+    assert any("No final mp4" in warning for warning in data["warnings"])

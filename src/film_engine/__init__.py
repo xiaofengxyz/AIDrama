@@ -60,6 +60,18 @@ from .series import FilmTemplateCatalogLoader, SeriesProductionPlanner
 from .shot_graph import ShotGraphBuilder
 from .state import FilmStateEngine
 from .story_graph import StoryGraphBuilder
+from .workflow import (
+    RenderPackageExporter,
+    RuntimeModelRecommendation,
+    WorkflowEditEvent,
+    WorkflowStageDefinition,
+    WorkflowStageState,
+    WorkflowState,
+    WorkflowStateStore,
+    evaluate_project_workflow,
+    get_model_recommendation_catalog,
+    get_workflow_stage_definitions,
+)
 
 __all__ = [
     "BatchProductionItem",
@@ -105,6 +117,8 @@ __all__ = [
     "RuntimeRequest",
     "RuntimeResult",
     "RuntimeRouter",
+    "RenderPackageExporter",
+    "RuntimeModelRecommendation",
     "SceneAsset",
     "SceneBible",
     "SceneRegistry",
@@ -119,4 +133,12 @@ __all__ = [
     "StoryGraph",
     "StoryGraphBuilder",
     "StoryGraphEdge",
+    "WorkflowEditEvent",
+    "WorkflowStageDefinition",
+    "WorkflowStageState",
+    "WorkflowState",
+    "WorkflowStateStore",
+    "evaluate_project_workflow",
+    "get_model_recommendation_catalog",
+    "get_workflow_stage_definitions",
 ]

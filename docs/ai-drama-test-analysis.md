@@ -1,6 +1,6 @@
 # AI 漫剧测试用例分析与问题清单
 
-日期：2026-05-11
+日期：2026-05-12
 
 ## 测试目标
 
@@ -49,6 +49,7 @@
 | BUG-003 | P1 | `getProjects`、`listSeries` 等集合接口直接 `.map` 或直接返回 | API 代理异常时错误信息晦涩，页面容易白屏 | 已修复 |
 | BUG-004 | P1 | 缺少 nginx API 前缀测试 | 后续新增端点容易再次漏代理 | 已补测试 |
 | BUG-005 | P2 | 文档中的上游 clone 路径指向旧脚手架 | 后续多候选仓库管理不清晰 | 已更新 |
+| BUG-006 | P1 | QA & Export 点击 `Start Render` 时，缺少已选择视频会显示泛化的 `failed to export project` | 制作人无法判断是 FFmpeg、素材缺失还是导出链路坏了 | 已修复：缺素材时返回 render package 与阻塞项 |
 
 ## 回归建议
 
@@ -98,6 +99,12 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-033 | 首页模板中心 | 访问 `http://localhost:3014` | 首页展示“AI 漫剧模板中心”、样片卡片和“创建 5 集系列”按钮 |
 | TC-034 | 样片模板实例化 | 调用 `POST /film/templates/pilots/{sample_id}/instantiate` | 创建独立草稿项目，并返回 `#/project/{id}/step/export` |
 | TC-035 | 系列模板实例化 | 调用 `POST /film/templates/series/{blueprint_id}/instantiate` | 创建 1 个系列、5 个单集草稿和共享角色/场景/道具资产 |
+| TC-036 | 工作流状态 API | 调用 `GET /projects/{projectId}/workflow` | 返回 Novel、Asset、Storyboard、Image、Video、Voice、Composition、QA/Retry、Export 9 个阶段状态 |
+| TC-037 | 模型建议目录 | 调用 `GET /film/runtime/recommendations` | 返回百炼优先的图片、视频、语音模型建议和未来适配器说明 |
+| TC-038 | 重生成意图持久化 | 调用 `POST /projects/{projectId}/workflow/stages/video_runtime/regenerate` | 返回 queued/accepted 事件并写入 workflow edit history |
+| TC-039 | Start Render 缺视频兜底 | 项目没有 selected video 时点击 `Start Render` | 返回 `mode=render_package`、可下载 JSON、warnings 和 action_required，不再泛化失败 |
+| TC-040 | Start Render 错误信息 | 后端返回 400 detail | 前端展示具体 detail，而不是固定 `Failed to export project` |
+| TC-041 | 工作流 UI 可视化 | 进入第 9 步 QA & Export | 页面显示 CineForge Workflow 阶段、进度、阻塞项与模型建议 |
 
 ## 本次九阶段可视化新增自动化测试
 
@@ -109,6 +116,8 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | `frontend/src/__tests__/workspace-routing.test.ts` | 项目/系列单集工作台 hash 解析、QA & Export 深链构造 |
 | `tests/test_film_pipeline_api.py` | `/film/pipeline/run` 响应包含 `film_run.shot_graph`；模板目录和样片/系列实例化 API |
 | `tests/test_series_production_blueprint.py` | D7 样片和 5 集系列蓝图加载、编译、批量 dry-run、重复集号拒绝、首页模板 catalog loader |
+| `tests/test_film_workflow.py` | 工作流状态评估、视频就绪判断、edit history 保留、render package manifest、百炼优先模型目录 |
+| `frontend/src/__tests__/workflow-api.test.ts` | `exportProject` 支持 render package 响应、后端 detail 透传、workflow state 加载 |
 
 新增验收命令：
 
@@ -118,4 +127,5 @@ cd frontend && npm run test:ui
 cd frontend && npx tsc --noEmit --pretty false
 python3 -m pytest tests/test_film_pipeline_api.py tests/test_film_production_pipeline.py -q -s
 python3 -m pytest tests/test_series_production_blueprint.py -q -s
+python3 -m pytest tests/test_film_workflow.py -q -s
 ```

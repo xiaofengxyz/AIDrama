@@ -1,6 +1,6 @@
 # AIDrama 文档中心
 
-日期：2026-05-11
+日期：2026-05-12
 
 本项目是一个面向 Jellyfish 主平台基座的工业 AI Film Engine 工作区。当前仓库可运行入口已统一为 AIDrama Studio，用于本地试制、测试和迁移验证；最终架构口径以 Starter Kit 为准。
 
@@ -41,6 +41,8 @@ make down
 - 后端 API：`http://localhost:17177/docs`
 - Film Core dry-run API：`POST http://localhost:17177/film/pipeline/run`
 - 模板目录 API：`GET http://localhost:17177/film/templates`
+- 模型建议目录：`GET http://localhost:17177/film/runtime/recommendations`
+- 项目工作流状态：`GET http://localhost:17177/projects/{projectId}/workflow`
 
 ## 当前样例模板
 

@@ -35,6 +35,7 @@ from ...film_engine import (
     CostumeAsset as FilmCostumeAsset,
     FilmProductionPipeline,
     FilmTemplateCatalogLoader,
+    RenderPackageExporter,
     ProductionBible,
     PropAsset as FilmPropAsset,
     RetryPolicy as FilmRetryPolicy,
@@ -42,6 +43,11 @@ from ...film_engine import (
     SceneAsset as FilmSceneAsset,
     SceneRegistry as FilmSceneRegistry,
     SeriesProductionBlueprint,
+    WorkflowEditEvent,
+    WorkflowStateStore,
+    evaluate_project_workflow,
+    get_model_recommendation_catalog,
+    get_workflow_stage_definitions,
 )
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv, set_key
@@ -111,6 +117,8 @@ app.mount("/files", StaticFiles(directory="output"), name="files")
 # Initialize pipeline
 pipeline = ComicGenPipeline()
 template_loader = FilmTemplateCatalogLoader(_project_root)
+workflow_store = WorkflowStateStore()
+render_package_exporter = RenderPackageExporter()
 
 @app.get("/debug/config")
 async def debug_config():
@@ -145,7 +153,9 @@ def signed_response(data):
     elif isinstance(data, list):
         processed_data = [item.model_dump() if hasattr(item, "model_dump") else item for item in data]
     else:
-        processed_data = data
+        # Nested Pydantic models can appear in dict responses such as export
+        # workflow_state, so normalize the whole structure before JSONResponse.
+        processed_data = jsonable_encoder(data)
 
     # Check if OSS is configured
     uploader = OSSImageUploader()
@@ -223,6 +233,20 @@ class FilmTemplateInstantiationResponse(BaseModel):
         default_factory=list,
         description="Created episode projects for a series template.",
     )
+
+
+class WorkflowRegenerateRequest(BaseModel):
+    """Record an edit/regenerate intent for a workflow stage."""
+
+    reason: str = ""
+    scope: Dict[str, Any] = Field(default_factory=dict)
+    dry_run: bool = True
+
+
+def _persist_project_workflow(script: Script, film_summary: Optional[Dict[str, Any]] = None):
+    """Evaluate and persist one project's workflow state for recovery."""
+    state = evaluate_project_workflow(script, film_summary=film_summary)
+    return workflow_store.upsert(state)
 
 
 def _first_reference_image(reference_images: List[str]) -> Optional[str]:
@@ -396,6 +420,68 @@ async def instantiate_series_template(blueprint_id: str):
         raise HTTPException(status_code=404, detail=str(error))
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.get("/film/runtime/recommendations")
+async def get_runtime_recommendations():
+    """Return Bailian-first model choices for each production workflow stage."""
+    return JSONResponse(content=jsonable_encoder(get_model_recommendation_catalog()))
+
+
+@app.get("/projects/{script_id}/workflow")
+async def get_project_workflow(script_id: str):
+    """Evaluate and persist the current CineForge workflow state for one project."""
+    script = pipeline.get_script(script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail="Project not found")
+    state = _persist_project_workflow(script)
+    return JSONResponse(content=jsonable_encoder(state))
+
+
+@app.post("/projects/{script_id}/workflow/stages/{stage_id}/regenerate")
+async def regenerate_workflow_stage(
+    script_id: str,
+    stage_id: str,
+    request: WorkflowRegenerateRequest,
+):
+    """Record a stage-level regenerate request without hiding project state.
+
+    The endpoint is intentionally lightweight: it makes edit/regenerate intents
+    durable now, while each stage can later bind to a queue or vendor runtime.
+    """
+    script = pipeline.get_script(script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    known_stage_ids = {stage.id for stage in get_workflow_stage_definitions()}
+    if stage_id not in known_stage_ids:
+        raise HTTPException(status_code=404, detail=f"Unknown workflow stage: {stage_id}")
+
+    _persist_project_workflow(script)
+    event = WorkflowEditEvent(
+        event_id=f"regen_{uuid.uuid4().hex}",
+        stage_id=stage_id,
+        action="regenerate",
+        reason=request.reason,
+        scope=request.scope,
+        dry_run=request.dry_run,
+        status="queued" if request.dry_run else "accepted",
+        metadata={
+            "project_title": script.title,
+            "implementation": "state_only_until_stage_queue_is_enabled",
+        },
+    )
+    state = workflow_store.record_edit_event(script_id, event)
+    return JSONResponse(
+        content=jsonable_encoder(
+            {
+                "status": event.status,
+                "event": event,
+                "workflow_state": state,
+                "next_action": "Review blockers, then run the concrete stage tool from the Studio UI.",
+            }
+        )
+    )
 
 
 @app.get("/film/pipeline/run")
@@ -2135,32 +2221,76 @@ class ExportRequest(BaseModel):
     resolution: str = "1080p"
     format: str = "mp4"
     subtitles: str = "none"
+    allow_package_fallback: bool = True
 
 @app.post("/projects/{script_id}/export")
 async def export_project(script_id: str, request: ExportRequest):
     """Export project video by merging all selected frame videos.
 
-    Currently delegates to the existing merge_videos pipeline.
-    resolution/format/subtitles parameters are accepted but not yet applied
-    (requires FFmpeg pipeline iteration).
+    If selected video clips are not complete yet, return a recoverable render
+    package instead of a generic frontend failure. This keeps QA & Export useful
+    while assets, video, voice and composition are still being completed.
     """
     try:
         script = pipeline.get_script(script_id)
         if not script:
             raise HTTPException(status_code=404, detail="Project not found")
 
+        workflow_state = _persist_project_workflow(script)
+
         # If already merged, return existing URL directly
         if script.merged_video_url:
-            return signed_response({"url": script.merged_video_url})
+            return signed_response(
+                {
+                    "url": script.merged_video_url,
+                    "mode": "video",
+                    "warnings": [],
+                    "action_required": [],
+                    "workflow_state": workflow_state,
+                }
+            )
 
         # Otherwise, run merge pipeline
         merged_script = pipeline.merge_videos(script_id)
-        return signed_response({"url": merged_script.merged_video_url})
+        workflow_state = _persist_project_workflow(merged_script)
+        return signed_response(
+            {
+                "url": merged_script.merged_video_url,
+                "mode": "video",
+                "warnings": [],
+                "action_required": [],
+                "workflow_state": workflow_state,
+            }
+        )
     except HTTPException:
         raise
     except ValueError as e:
+        if request.allow_package_fallback:
+            script = pipeline.get_script(script_id)
+            if script:
+                workflow_state = _persist_project_workflow(script)
+                return signed_response(
+                    render_package_exporter.export(
+                        script,
+                        workflow_state=workflow_state,
+                        options=request.model_dump(mode="json"),
+                        reason=str(e),
+                    )
+                )
         raise HTTPException(status_code=400, detail=str(e))
     except RuntimeError as e:
+        if request.allow_package_fallback:
+            script = pipeline.get_script(script_id)
+            if script:
+                workflow_state = _persist_project_workflow(script)
+                return signed_response(
+                    render_package_exporter.export(
+                        script,
+                        workflow_state=workflow_state,
+                        options=request.model_dump(mode="json"),
+                        reason=str(e),
+                    )
+                )
         raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         logger.error(f"[EXPORT ERROR] {e}")
