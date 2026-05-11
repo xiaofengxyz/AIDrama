@@ -420,6 +420,62 @@ class BatchProductionPlan(BaseModel):
         return self
 
 
+class PilotSampleTemplate(BaseModel):
+    """A short pilot template used to validate one mini-drama direction."""
+
+    sample_id: str
+    title: str
+    genre: str
+    target_duration_seconds: int = Field(..., ge=60, le=90)
+    audience_hook: str
+    production_risk: str
+    success_metric: str
+    script_text: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator(
+        "sample_id",
+        "title",
+        "genre",
+        "audience_hook",
+        "production_risk",
+        "success_metric",
+        "script_text",
+    )
+    @classmethod
+    def validate_non_empty_pilot_text(cls, value: str) -> str:
+        """Keep pilot templates usable by rejecting empty required fields."""
+        if not value.strip():
+            raise ValueError("pilot sample template fields cannot be empty")
+        return value
+
+
+class PilotSamplePack(BaseModel):
+    """A checked collection of 60-90 second pilot sample templates."""
+
+    id: str = "pilot_samples"
+    purpose: str = ""
+    samples: List[PilotSampleTemplate] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_samples(self) -> "PilotSamplePack":
+        """Ensure the visible template pack always contains unique samples."""
+        if not self.samples:
+            raise ValueError("PilotSamplePack requires at least one sample")
+        sample_ids = [sample.sample_id for sample in self.samples]
+        duplicate_ids = sorted(
+            {
+                sample_id
+                for sample_id in sample_ids
+                if sample_ids.count(sample_id) > 1
+            }
+        )
+        if duplicate_ids:
+            raise ValueError(f"Duplicate pilot sample ids: {duplicate_ids}")
+        return self
+
+
 class SeriesEpisodeBlueprint(BaseModel):
     episode_id: str
     title: str

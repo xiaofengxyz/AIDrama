@@ -4,6 +4,8 @@ import pytest
 import yaml
 
 from src.film_engine import (
+    FilmTemplateCatalogLoader,
+    PilotSamplePack,
     SeriesProductionBlueprint,
     SeriesProductionPlanner,
     StoryGraphBuilder,
@@ -112,3 +114,21 @@ def test_three_pilot_samples_are_story_graph_ready():
         )
         assert len(graph.beats) >= 3
         assert graph.metadata["builder_version"] == "story_graph.v1"
+
+
+def test_template_catalog_loader_exposes_home_page_templates():
+    """The catalog loader should expose exactly the templates shown on the home page."""
+    loader = FilmTemplateCatalogLoader(PROJECT_ROOT)
+
+    pilot_pack = loader.load_pilot_pack()
+    catalog = loader.build_catalog()
+
+    assert isinstance(pilot_pack, PilotSamplePack)
+    assert catalog["status"] == "ready"
+    assert catalog["summary"] == {
+        "pilot_sample_count": 3,
+        "series_blueprint_count": 1,
+        "episode_count": 5,
+    }
+    assert loader.get_pilot_sample("midnight_delivery_70s").title == "Midnight Delivery"
+    assert loader.get_series_blueprint("night_signal_s01").title == "Night Signal Season 1"

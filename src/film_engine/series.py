@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import yaml
 
@@ -13,6 +13,8 @@ from .models import (
     BatchProductionPlan,
     BatchProductionRun,
     CharacterBible,
+    PilotSamplePack,
+    PilotSampleTemplate,
     ProductionBible,
     SceneBible,
     SeriesEpisodeBlueprint,
@@ -21,6 +23,89 @@ from .models import (
 from .orchestrator import FilmEngine
 from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
 from .story_graph import StoryGraphBuilder
+
+
+class FilmTemplateCatalogLoader:
+    """Load checked pilot and series templates from repository sample files."""
+
+    DEFAULT_PILOT_PACK_PATH = Path("samples/pilot_samples/three_60_90s_pilots.yaml")
+    DEFAULT_SERIES_BLUEPRINT_PATHS = (
+        Path("samples/series_production/vertical_suspense_5ep.yaml"),
+    )
+
+    def __init__(self, project_root: str | Path):
+        """Store the project root used to resolve relative sample paths."""
+        self.project_root = Path(project_root)
+
+    def load_pilot_pack(self, path: str | Path | None = None) -> PilotSamplePack:
+        """Load and validate the 60-90 second pilot template pack."""
+        source = self._resolve(path or self.DEFAULT_PILOT_PACK_PATH)
+        data = self._load_mapping(source)
+        payload = data.get("pilot_samples", data)
+        if not isinstance(payload, dict):
+            raise ValueError("pilot_samples payload must be a mapping")
+        return PilotSamplePack(**payload)
+
+    def load_series_blueprints(
+        self,
+        paths: Sequence[str | Path] | None = None,
+    ) -> List[SeriesProductionBlueprint]:
+        """Load every configured multi-episode series validation blueprint."""
+        sources = paths or self.DEFAULT_SERIES_BLUEPRINT_PATHS
+        return [SeriesProductionPlanner.load_file(self._resolve(path)) for path in sources]
+
+    def build_catalog(self) -> Dict[str, Any]:
+        """Build the API-ready template catalog used by the Studio home page."""
+        pilot_pack = self.load_pilot_pack()
+        series_blueprints = self.load_series_blueprints()
+        return {
+            "status": "ready",
+            "source": "repository_samples",
+            "pilot_samples": pilot_pack,
+            "series_blueprints": series_blueprints,
+            "summary": {
+                "pilot_sample_count": len(pilot_pack.samples),
+                "series_blueprint_count": len(series_blueprints),
+                "episode_count": sum(
+                    len(blueprint.episodes) for blueprint in series_blueprints
+                ),
+            },
+        }
+
+    def get_pilot_sample(self, sample_id: str) -> PilotSampleTemplate:
+        """Find one pilot sample by stable template id."""
+        pilot_pack = self.load_pilot_pack()
+        for sample in pilot_pack.samples:
+            if sample.sample_id == sample_id:
+                return sample
+        raise KeyError(f"Unknown pilot sample template: {sample_id}")
+
+    def get_series_blueprint(self, blueprint_id: str) -> SeriesProductionBlueprint:
+        """Find one series production blueprint by stable template id."""
+        for blueprint in self.load_series_blueprints():
+            if blueprint.id == blueprint_id:
+                return blueprint
+        raise KeyError(f"Unknown series template: {blueprint_id}")
+
+    def _resolve(self, path: str | Path) -> Path:
+        """Resolve a template path relative to the configured project root."""
+        source = Path(path)
+        if source.is_absolute():
+            return source
+        return self.project_root / source
+
+    def _load_mapping(self, path: Path) -> Dict[str, Any]:
+        """Read a JSON/YAML sample file and require a mapping at the top level."""
+        if not path.exists():
+            raise FileNotFoundError(f"Template file does not exist: {path}")
+        text = path.read_text(encoding="utf-8")
+        if path.suffix.lower() == ".json":
+            data = json.loads(text)
+        else:
+            data = yaml.safe_load(text) or {}
+        if not isinstance(data, dict):
+            raise ValueError(f"Template file must contain a mapping: {path}")
+        return data
 
 
 class SeriesProductionPlanner:

@@ -1,6 +1,6 @@
 # 任务进度索引
 
-日期：2026-05-08
+日期：2026-05-11
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
@@ -13,6 +13,38 @@
 - `external/` 仅作为被忽略的上游参考区，不参与提交和构建。
 
 ## 本轮执行计划与状态
+
+### 2026-05-11 服务重启、模板可见入口与全链路使用手册复核
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 服务与仓库复核 | 已完成 | 复核 git、Docker 服务、3014/17177 运行入口、现有模板和 UI 缺口 | `git status --short --branch`、`docker compose ps`、读取首页和模板样例 |
+| 2. 模板入口实现 | 已完成 | 把 3 个 60-90 秒样片和 5 集验证蓝图从 `samples/` 暴露到后端 API 与首页可见模板中心 | 后端 API 测试、前端模板中心测试 |
+| 3. 测试工程复核 | 已完成 | 补充模板目录、模板实例化、首页入口、手册路径的自动化与文档测试记录 | pytest、vitest、tsc、Docker/curl 冒烟 |
+| 4. 用户操作手册 | 已完成 | 说明当前 UI 不是 LumenX、模板在哪里看、从配置到多集出片怎么操作 | `USER_MANUAL.md`、`docs/ai-drama-test-analysis.md` |
+| 5. 清理提交推送 | 进行中 | 重建重启服务、冲突检查、清理工作区并按需提交推送 | `git diff --check`、`git ls-files -u`、`git push` |
+
+本轮初步结论：
+
+- 当前可运行页面是 AIDrama Studio；前端运行面源码没有 LumenX 页面入口。
+- `samples/pilot_samples/three_60_90s_pilots.yaml` 和 `samples/series_production/vertical_suspense_5ep.yaml` 现在会通过 `GET /film/templates` 暴露，并显示在 `http://localhost:3014` 首页“AI 漫剧模板中心”。
+- 首页支持从 3 个样片创建独立项目，也支持从 `night_signal_s01` 创建 5 集系列草稿；样片脚本中的 `[character]`、`[prop]`、`[costume]` 标签会在前端 Film Core payload 中推导为轻量资产，避免模板刚创建就无法进入 QA dry-run。
+- `Dockerfile.backend` 已复制 `samples/`，容器内 `/film/templates` 不再依赖宿主手动挂载样例文件。
+
+本轮验证记录：
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py`：通过。
+- `python3 -m pytest -q -s tests/test_series_production_blueprint.py tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py tests/test_film_pipeline_api.py`：通过，23 passed，6 skipped（宿主缺 DashScope 时 API app 测试按既有规则跳过）。
+- `cd frontend && npm run test`：通过，9 个测试文件，113 个测试。
+- `cd frontend && npm run test:ui`：通过，3 个测试文件，49 个测试；错误态用例保留预期 stderr。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建并重启。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl -sS http://localhost:3014/film/templates`：HTTP 200，返回 3 个样片、1 个 5 集蓝图和 summary。
+- `curl -sS http://localhost:17177/film/pipeline/run`：HTTP 200，返回 Film Core endpoint 说明和固定九阶段。
+- `docker run --rm aidrama-frontend:latest ... grep 'AI 漫剧模板中心'`：通过，构建产物包含模板中心。
+- `docker run --rm aidrama-frontend:latest ... grep 'LumenX|lumenx|Lumen'`：通过，构建后的前端无旧品牌字符串。
+- `docker cp tests aidrama-backend:/app/tests && docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，146 passed，72 warnings。
 
 ### 2026-05-09 D7 样片模板、使用手册与 LumenX 运行面清理复核
 

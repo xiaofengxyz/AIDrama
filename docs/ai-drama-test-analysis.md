@@ -1,6 +1,6 @@
 # AI 漫剧测试用例分析与问题清单
 
-日期：2026-05-07
+日期：2026-05-11
 
 ## 测试目标
 
@@ -94,15 +94,21 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-029 | 系列蓝图批量编排 | 将 5 集蓝图编译为 `BatchProductionPlan` | 5 个 episode item 按优先级排序，保留每集 Story Graph、Director Program 和资产引用 |
 | TC-030 | 系列蓝图 dry-run | 使用共享 Character/Scene/Production Registry 执行 5 集 dry-run | 5 集全部 accepted，15 个镜头都有 selected output，Film State 保留 continuity locks |
 | TC-031 | 3 个样片模板 | 加载 `samples/pilot_samples/three_60_90s_pilots.yaml` | 每个样片目标时长在 60-90 秒，可构建 Story Graph |
+| TC-032 | 模板目录 API | 调用 `GET /film/templates` | 返回 3 个样片、1 个 5 集蓝图和 summary 统计 |
+| TC-033 | 首页模板中心 | 访问 `http://localhost:3014` | 首页展示“AI 漫剧模板中心”、样片卡片和“创建 5 集系列”按钮 |
+| TC-034 | 样片模板实例化 | 调用 `POST /film/templates/pilots/{sample_id}/instantiate` | 创建独立草稿项目，并返回 `#/project/{id}/step/export` |
+| TC-035 | 系列模板实例化 | 调用 `POST /film/templates/series/{blueprint_id}/instantiate` | 创建 1 个系列、5 个单集草稿和共享角色/场景/道具资产 |
 
 ## 本次九阶段可视化新增自动化测试
 
 | 文件 | 覆盖点 |
 |---|---|
 | `frontend/src/__tests__/film-engine.test.ts` | 前端 Film Core payload 构造、空脚本分镜回退、九阶段状态评估、控制台指标汇总 |
+| `frontend/src/__tests__/film-templates.test.ts` | 模板目录统计、样片排序、5 集蓝图资产统计 |
+| `frontend/src/components/modules/__tests__/TemplateLibraryPanel.spec.tsx` | 首页模板中心渲染、样片创建后跳转 QA 路由 |
 | `frontend/src/__tests__/workspace-routing.test.ts` | 项目/系列单集工作台 hash 解析、QA & Export 深链构造 |
-| `tests/test_film_pipeline_api.py` | `/film/pipeline/run` 响应包含 `film_run.shot_graph`，Shot Graph 阶段不再只停留在后端内部 |
-| `tests/test_series_production_blueprint.py` | D7 样片和 5 集系列蓝图加载、编译、批量 dry-run、重复集号拒绝 |
+| `tests/test_film_pipeline_api.py` | `/film/pipeline/run` 响应包含 `film_run.shot_graph`；模板目录和样片/系列实例化 API |
+| `tests/test_series_production_blueprint.py` | D7 样片和 5 集系列蓝图加载、编译、批量 dry-run、重复集号拒绝、首页模板 catalog loader |
 
 新增验收命令：
 

@@ -1,6 +1,6 @@
 # AIDrama 文档中心
 
-日期：2026-05-07
+日期：2026-05-11
 
 本项目是一个面向 Jellyfish 主平台基座的工业 AI Film Engine 工作区。当前仓库可运行入口已统一为 AIDrama Studio，用于本地试制、测试和迁移验证；最终架构口径以 Starter Kit 为准。
 
@@ -40,8 +40,11 @@ make down
 - 前端：`http://localhost:3014`
 - 后端 API：`http://localhost:17177/docs`
 - Film Core dry-run API：`POST http://localhost:17177/film/pipeline/run`
+- 模板目录 API：`GET http://localhost:17177/film/templates`
 
 ## 当前样例模板
 
 - `samples/pilot_samples/three_60_90s_pilots.yaml`：3 个 60-90 秒样片方向。
 - `samples/series_production/vertical_suspense_5ep.yaml`：5 集竖屏悬疑短漫剧蓝图，可用于批量 dry-run 验证。
+
+这些模板也会显示在 `http://localhost:3014` 首页顶部的“AI 漫剧模板中心”，可直接创建样片项目或 5 集系列草稿。

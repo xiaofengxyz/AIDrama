@@ -124,6 +124,67 @@ export interface FilmPipelineRunResponse {
     metadata?: Record<string, any>;
 }
 
+export interface PilotSampleTemplate {
+    sample_id: string;
+    title: string;
+    genre: string;
+    target_duration_seconds: number;
+    audience_hook: string;
+    production_risk: string;
+    success_metric: string;
+    script_text: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface PilotSamplePack {
+    id: string;
+    purpose: string;
+    samples: PilotSampleTemplate[];
+    metadata?: Record<string, unknown>;
+}
+
+export interface SeriesEpisodeTemplate {
+    episode_id: string;
+    title: string;
+    script_text: string;
+    priority?: number;
+    tags?: string[];
+    metadata?: Record<string, unknown>;
+}
+
+export interface SeriesProductionTemplate {
+    id: string;
+    title: string;
+    backend: string;
+    characters?: unknown[];
+    scenes?: unknown[];
+    props?: unknown[];
+    costumes?: unknown[];
+    episodes: SeriesEpisodeTemplate[];
+    metadata?: Record<string, any>;
+}
+
+export interface FilmTemplateCatalog {
+    status: string;
+    source: string;
+    pilot_samples: PilotSamplePack;
+    series_blueprints: SeriesProductionTemplate[];
+    summary: {
+        pilot_sample_count: number;
+        series_blueprint_count: number;
+        episode_count: number;
+    };
+}
+
+export interface FilmTemplateInstantiationResponse {
+    created_type: "pilot_project" | "series";
+    template_id: string;
+    next_hash: string;
+    project?: any;
+    series?: any;
+    episodes: any[];
+}
+
 export interface VideoTask {
     id: string;
     project_id: string;
@@ -146,6 +207,35 @@ export interface VideoTask {
 }
 
 export const api = {
+    /**
+     * Fetches repository-backed pilot and series templates for the Studio home page.
+     * @returns A validated template catalog exposed by the Film Core backend.
+     */
+    getFilmTemplates: async (): Promise<FilmTemplateCatalog> => {
+        const res = await axios.get(`${API_URL}/film/templates`);
+        return res.data;
+    },
+
+    /**
+     * Creates a standalone draft project from a 60-90 second pilot template.
+     * @param sampleId Stable pilot template id from the template catalog.
+     * @returns The created project and next frontend route.
+     */
+    createProjectFromPilotTemplate: async (sampleId: string): Promise<FilmTemplateInstantiationResponse> => {
+        const res = await axios.post(`${API_URL}/film/templates/pilots/${sampleId}/instantiate`);
+        return res.data;
+    },
+
+    /**
+     * Creates a multi-episode draft series from a checked Film Core blueprint.
+     * @param blueprintId Stable series blueprint id from the template catalog.
+     * @returns The created series, episode projects, and next frontend route.
+     */
+    createSeriesFromTemplate: async (blueprintId: string): Promise<FilmTemplateInstantiationResponse> => {
+        const res = await axios.post(`${API_URL}/film/templates/series/${blueprintId}/instantiate`);
+        return res.data;
+    },
+
     runFilmPipeline: async (payload: FilmPipelineRunPayload): Promise<FilmPipelineRunResponse> => {
         const res = await axios.post(`${API_URL}/film/pipeline/run`, payload);
         return res.data;

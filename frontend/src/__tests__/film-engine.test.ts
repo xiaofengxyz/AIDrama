@@ -50,7 +50,28 @@ describe("buildFilmPipelinePayload", () => {
     expect((payload.characters?.[0] as any).reference_images).toEqual(["refs/maya.png"]);
     expect((payload.characters?.[0] as any).locked_traits).toContain("identity_locked");
     expect((payload.props?.[0] as any).locked_traits).toContain("prop_locked");
+    expect((payload.costumes?.[0] as any).id).toBe("blue_raincoat");
     expect((payload.continuity_locks?.characters as any).maya.locked_traits).toContain("identity_locked");
+  });
+
+  it("infers tagged assets so template pilots can open QA before asset generation", () => {
+    const payload = buildFilmPipelinePayload({
+      id: "template-pilot",
+      title: "Template Pilot",
+      originalText: "EXT. ALLEY\nJun: The order is old. [character=jun] [prop=delivery_bag] [costume=yellow_rain_jacket]",
+      characters: [],
+      scenes: [],
+      props: [],
+      frames: [],
+      status: "draft",
+      createdAt: "",
+      updatedAt: "",
+    } as any);
+
+    expect((payload.characters?.[0] as any).id).toBe("jun");
+    expect((payload.props?.[0] as any).id).toBe("delivery_bag");
+    expect((payload.costumes?.[0] as any).id).toBe("yellow_rain_jacket");
+    expect((payload.continuity_locks?.props as any).delivery_bag.locked_traits).toContain("script_tagged");
   });
 
   it("builds a deterministic script from storyboard frames when raw script is empty", () => {

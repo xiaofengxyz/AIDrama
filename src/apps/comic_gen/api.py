@@ -3,7 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
 import asyncio
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -15,9 +15,12 @@ import logging
 import traceback
 from .pipeline import ComicGenPipeline
 from .models import (
+    Character,
     PromptConfig,
+    Prop,
     ProviderBackend,
     ProviderRoutingConfig,
+    Scene,
     Script,
     Series,
     VideoTask,
@@ -31,12 +34,14 @@ from ...film_engine import (
     CharacterRegistry as FilmCharacterRegistry,
     CostumeAsset as FilmCostumeAsset,
     FilmProductionPipeline,
+    FilmTemplateCatalogLoader,
     ProductionBible,
     PropAsset as FilmPropAsset,
     RetryPolicy as FilmRetryPolicy,
     RuntimeBackend as FilmRuntimeBackend,
     SceneAsset as FilmSceneAsset,
     SceneRegistry as FilmSceneRegistry,
+    SeriesProductionBlueprint,
 )
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv, set_key
@@ -105,6 +110,7 @@ app.mount("/files", StaticFiles(directory="output"), name="files")
 
 # Initialize pipeline
 pipeline = ComicGenPipeline()
+template_loader = FilmTemplateCatalogLoader(_project_root)
 
 @app.get("/debug/config")
 async def debug_config():
@@ -197,6 +203,199 @@ class FilmPipelineRunRequest(BaseModel):
     props: List[FilmPropAsset] = Field(default_factory=list)
     costumes: List[FilmCostumeAsset] = Field(default_factory=list)
     continuity_locks: Dict[str, Any] = Field(default_factory=dict)
+
+
+class FilmTemplateInstantiationResponse(BaseModel):
+    """Response returned after a repository template is copied into the workspace."""
+
+    created_type: str = Field(..., description="Created workspace entity type.")
+    template_id: str = Field(..., description="Stable source template identifier.")
+    next_hash: str = Field(..., description="Frontend hash route for the next user step.")
+    project: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Created standalone project when a pilot template is instantiated.",
+    )
+    series: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Created series when a series template is instantiated.",
+    )
+    episodes: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Created episode projects for a series template.",
+    )
+
+
+def _first_reference_image(reference_images: List[str]) -> Optional[str]:
+    """Return the first reference image for Studio asset previews."""
+    return reference_images[0] if reference_images else None
+
+
+def _film_character_to_studio_character(asset: FilmCharacterAsset) -> Character:
+    """Convert a Film Core character asset into the Studio series asset model."""
+    return Character(
+        id=asset.id,
+        name=asset.name or asset.id,
+        description=asset.description,
+        clothing=asset.current_outfit,
+        image_url=_first_reference_image(asset.reference_images),
+        locked=bool(asset.locked_traits or asset.reference_images),
+    )
+
+
+def _film_scene_to_studio_scene(asset: FilmSceneAsset) -> Scene:
+    """Convert a Film Core scene asset into the Studio series asset model."""
+    description_parts = [
+        asset.mood,
+        asset.lighting or "",
+        asset.weather or "",
+        asset.tone or "",
+        *asset.continuity_notes,
+    ]
+    description = "; ".join(part for part in description_parts if part)
+    return Scene(
+        id=asset.id,
+        name=asset.location or asset.id,
+        description=description,
+        time_of_day=asset.time_of_day,
+        lighting_mood=asset.lighting,
+        image_url=_first_reference_image(asset.reference_images),
+        locked=bool(asset.continuity_notes or asset.reference_images),
+    )
+
+
+def _film_prop_to_studio_prop(asset: FilmPropAsset) -> Prop:
+    """Convert a Film Core prop asset into the Studio series asset model."""
+    description_parts = [
+        asset.description,
+        *asset.signature_details,
+        *asset.continuity_notes,
+    ]
+    description = "; ".join(part for part in description_parts if part)
+    return Prop(
+        id=asset.id,
+        name=asset.name or asset.id,
+        description=description,
+        image_url=_first_reference_image(asset.reference_images),
+        locked=bool(asset.locked_traits or asset.reference_images),
+    )
+
+
+def _blueprint_description(blueprint: SeriesProductionBlueprint) -> str:
+    """Build a durable Studio description from series blueprint metadata."""
+    production_goal = str(blueprint.metadata.get("production_goal", "")).strip()
+    duration = blueprint.metadata.get("target_episode_duration_seconds")
+    format_name = str(blueprint.metadata.get("format", "")).strip()
+    details = [
+        production_goal,
+        f"Template id: {blueprint.id}",
+        f"Format: {format_name}" if format_name else "",
+        f"Target episode duration: {duration}s" if duration else "",
+    ]
+    return "\n".join(detail for detail in details if detail)
+
+
+def _instantiate_series_blueprint(
+    blueprint: SeriesProductionBlueprint,
+) -> Tuple[Series, List[Script]]:
+    """Copy a checked Film Core series blueprint into editable Studio records."""
+    series = pipeline.create_series(
+        blueprint.title,
+        _blueprint_description(blueprint),
+    )
+
+    # Important state change: shared continuity assets live at the series level,
+    # so every created episode can inherit the same locked character/scene/prop base.
+    series = pipeline.update_series(
+        series.id,
+        {
+            "characters": [
+                _film_character_to_studio_character(character)
+                for character in blueprint.characters
+            ],
+            "scenes": [
+                _film_scene_to_studio_scene(scene)
+                for scene in blueprint.scenes
+            ],
+            "props": [
+                _film_prop_to_studio_prop(prop)
+                for prop in blueprint.props
+            ],
+        },
+    )
+
+    created_episodes = []
+    for index, episode in enumerate(blueprint.episodes, start=1):
+        # Template episodes are created as draft scripts; users can analyze or
+        # regenerate them later without spending model budget during import.
+        project = pipeline.create_project(episode.title, episode.script_text, True)
+        pipeline.add_episode_to_series(series.id, project.id, index)
+        created_episodes.append(project)
+
+    refreshed_series = pipeline.get_series(series.id) or series
+    return refreshed_series, created_episodes
+
+
+@app.get("/film/templates")
+async def get_film_templates():
+    """Return visible AI mini-drama templates for the Studio home page."""
+    try:
+        return JSONResponse(content=jsonable_encoder(template_loader.build_catalog()))
+    except (FileNotFoundError, ValueError) as error:
+        # Template catalog failures are configuration errors, not user input errors.
+        logger.exception("Failed to load Film template catalog: %s", error)
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.post(
+    "/film/templates/pilots/{sample_id}/instantiate",
+    response_model=FilmTemplateInstantiationResponse,
+)
+async def instantiate_pilot_template(sample_id: str):
+    """Create a standalone project from a 60-90 second pilot sample template."""
+    try:
+        sample = template_loader.get_pilot_sample(sample_id)
+        project = pipeline.create_project(sample.title, sample.script_text, True)
+        return signed_response(
+            jsonable_encoder(
+                {
+                    "created_type": "pilot_project",
+                    "template_id": sample.sample_id,
+                    "next_hash": f"#/project/{project.id}/step/export",
+                    "project": project,
+                    "episodes": [],
+                }
+            )
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.post(
+    "/film/templates/series/{blueprint_id}/instantiate",
+    response_model=FilmTemplateInstantiationResponse,
+)
+async def instantiate_series_template(blueprint_id: str):
+    """Create a multi-episode Studio series from a Film Core blueprint."""
+    try:
+        blueprint = template_loader.get_series_blueprint(blueprint_id)
+        series, episodes = _instantiate_series_blueprint(blueprint)
+        return signed_response(
+            jsonable_encoder(
+                {
+                    "created_type": "series",
+                    "template_id": blueprint.id,
+                    "next_hash": f"#/series/{series.id}",
+                    "series": series,
+                    "episodes": episodes,
+                }
+            )
+        )
+    except KeyError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @app.get("/film/pipeline/run")

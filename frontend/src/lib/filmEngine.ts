@@ -107,7 +107,9 @@ export const FILM_ENGINE_STAGES: FilmEngineStage[] = [
 ];
 
 const NON_WORD = /[^a-zA-Z0-9_\-\u4e00-\u9fff]+/g;
+const SCRIPT_TAG = /\[(character|prop|costume)=([^\]\s]+)\]/g;
 
+/** Removes empty values and duplicate strings while preserving first-seen order. */
 function compact(values: Array<string | undefined | null>): string[] {
     return Array.from(
         new Set(
@@ -118,16 +120,88 @@ function compact(values: Array<string | undefined | null>): string[] {
     );
 }
 
+/** Builds a stable Film Core id from free-form Studio values. */
 function stableId(value: string | undefined, fallback: string): string {
     const source = value?.trim() || fallback;
     return source.replace(NON_WORD, "_").replace(/^_+|_+$/g, "") || fallback;
 }
 
+/** Creates a readable fallback label for assets inferred from script tags. */
+function labelFromId(value: string): string {
+    return value
+        .replace(/[_\-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase()) || value;
+}
+
+/** Extracts explicit Film Core asset tags from the source script. */
+function extractTaggedIds(sourceText: string, tagName: "character" | "prop" | "costume"): string[] {
+    const ids: string[] = [];
+    SCRIPT_TAG.lastIndex = 0;
+    let match = SCRIPT_TAG.exec(sourceText);
+    while (match) {
+        if (match[1] === tagName) {
+            ids.push(stableId(match[2], match[2]));
+        }
+        match = SCRIPT_TAG.exec(sourceText);
+    }
+    return compact(ids);
+}
+
+/** Returns ids from script tags that are not already covered by Studio assets. */
+function missingTaggedIds(sourceText: string, tagName: "character" | "prop" | "costume", knownIds: string[]): string[] {
+    const known = new Set(knownIds.map((id) => stableId(id, id)));
+    return extractTaggedIds(sourceText, tagName).filter((id) => !known.has(id));
+}
+
+/** Returns lightweight character assets declared directly in a script tag. */
+function inferredCharactersFromTags(sourceText: string, knownIds: string[]) {
+    return missingTaggedIds(sourceText, "character", knownIds).map((id) => ({
+        id,
+        name: labelFromId(id),
+        description: `Character declared by script tag ${id}.`,
+        reference_images: [],
+        locked_traits: ["script_tagged"],
+        continuity_notes: ["Declared in source script before asset generation."],
+    }));
+}
+
+/** Returns lightweight prop assets declared directly in a script tag. */
+function inferredPropsFromTags(sourceText: string, knownIds: string[]) {
+    return missingTaggedIds(sourceText, "prop", knownIds).map((id) => ({
+        id,
+        name: labelFromId(id),
+        description: `Prop declared by script tag ${id}.`,
+        reference_images: [],
+        locked_traits: ["script_tagged"],
+        continuity_notes: ["Declared in source script before asset generation."],
+    }));
+}
+
+/** Returns lightweight costume assets from script tags and character outfits. */
+function inferredCostumesFromTags(sourceText: string, outfitValues: string[]) {
+    const costumeIds = compact([
+        ...extractTaggedIds(sourceText, "costume"),
+        ...outfitValues.map((outfit) => stableId(outfit, outfit)),
+    ]);
+    return costumeIds.map((id) => ({
+        id,
+        name: labelFromId(id),
+        description: `Costume declared by script tag or Studio character outfit ${id}.`,
+        reference_images: [],
+        locked_traits: ["script_tagged"],
+        continuity_notes: ["Derived for Film Core continuity validation."],
+    }));
+}
+
+/** Selects the active preview image from a Studio image asset. */
 function selectedImage(asset?: ImageAsset): string | undefined {
     if (!asset?.variants?.length) return undefined;
     return asset.variants.find((variant) => variant.id === asset.selected_id)?.url || asset.variants[0]?.url;
 }
 
+/** Collects every available character reference image for Film Core. */
 function characterReferenceImages(character: Character): string[] {
     return compact([
         character.image_url,
@@ -141,14 +215,17 @@ function characterReferenceImages(character: Character): string[] {
     ]);
 }
 
+/** Collects every available scene reference image for Film Core. */
 function sceneReferenceImages(scene: Scene): string[] {
     return compact([scene.image_url, selectedImage(scene.image_asset)]);
 }
 
+/** Collects every available prop reference image for Film Core. */
 function propReferenceImages(prop: Prop): string[] {
     return compact([prop.image_url, selectedImage(prop.image_asset)]);
 }
 
+/** Builds source text for Film Core from raw script text or storyboard frames. */
 export function buildFilmSourceText(project: Project): string {
     const originalText = project.originalText?.trim();
     if (originalText) return originalText;
@@ -180,7 +257,9 @@ export function buildFilmSourceText(project: Project): string {
     return `INT. STUDIO\nNarrator: ${project.title || "Untitled project"} enters Film Engine dry run.`;
 }
 
+/** Builds a Film Core dry-run payload from one Studio project. */
 export function buildFilmPipelinePayload(project: Project): FilmPipelineRunPayload {
+    const scriptText = buildFilmSourceText(project);
     const characters = (project.characters || []).map((character) => ({
         id: stableId(character.id, stableId(character.name, "character")),
         name: character.name || character.id,
@@ -213,21 +292,33 @@ export function buildFilmPipelinePayload(project: Project): FilmPipelineRunPaylo
         locked_traits: compact([prop.locked ? "prop_locked" : undefined]),
         continuity_notes: compact([prop.description]),
     }));
+    const allCharacters = [
+        ...characters,
+        ...inferredCharactersFromTags(scriptText, characters.map((character) => character.id)),
+    ];
+    const allProps = [
+        ...props,
+        ...inferredPropsFromTags(scriptText, props.map((prop) => prop.id)),
+    ];
+    const costumes = inferredCostumesFromTags(
+        scriptText,
+        compact((project.characters || []).map((character) => character.clothing)),
+    );
 
     return {
-        script_text: buildFilmSourceText(project),
+        script_text: scriptText,
         graph_id: stableId(`film_${project.id}`, "film_project"),
         source_title: project.title || "Untitled Project",
         backend: "dry_run",
         max_attempts: 2,
         min_score: 0.82,
-        characters,
+        characters: allCharacters,
         scenes,
-        props,
-        costumes: [],
+        props: allProps,
+        costumes,
         continuity_locks: {
             characters: Object.fromEntries(
-                characters
+                allCharacters
                     .filter((character) => character.locked_traits.length > 0)
                     .map((character) => [character.id, { locked_traits: character.locked_traits }])
             ),
@@ -237,19 +328,26 @@ export function buildFilmPipelinePayload(project: Project): FilmPipelineRunPaylo
                     .map((scene) => [scene.id, { continuity_notes: scene.continuity_notes }])
             ),
             props: Object.fromEntries(
-                props
+                allProps
                     .filter((prop) => prop.locked_traits.length > 0)
                     .map((prop) => [prop.id, { locked_traits: prop.locked_traits }])
+            ),
+            costumes: Object.fromEntries(
+                costumes
+                    .filter((costume) => costume.locked_traits.length > 0)
+                    .map((costume) => [costume.id, { locked_traits: costume.locked_traits }])
             ),
         },
     };
 }
 
+/** Collects ledger shot runs from the Film Core response. */
 export function collectLedgerShotRuns(response: FilmPipelineRunResponse | null): any[] {
     if (!response?.generation_ledger?.shot_runs) return [];
     return Object.values(response.generation_ledger.shot_runs);
 }
 
+/** Converts the Film Core response into dashboard production metrics. */
 export function getFilmEngineMetrics(response: FilmPipelineRunResponse | null): FilmEngineMetrics {
     const summary = response?.film_run?.summary || {};
     const qaSummary = response?.final_edit?.qa_summary || {};
@@ -269,6 +367,7 @@ export function getFilmEngineMetrics(response: FilmPipelineRunResponse | null): 
     };
 }
 
+/** Evaluates the fixed nine Film Engine stages for the QA control room. */
 export function evaluateFilmEngineStages(response: FilmPipelineRunResponse | null): FilmEngineStageRun[] {
     if (!response) {
         return FILM_ENGINE_STAGES.map((stage) => ({

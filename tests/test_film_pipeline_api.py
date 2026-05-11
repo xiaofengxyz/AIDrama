@@ -10,9 +10,24 @@ pytestmark = pytest.mark.skipif(
 )
 
 if DASHSCOPE_AVAILABLE:
-    from src.apps.comic_gen.api import app
+    from src.apps.comic_gen import api as api_module
+
+    app = api_module.app
 else:
+    api_module = None
     app = None
+
+
+@pytest.fixture
+def isolated_client(monkeypatch, tmp_path):
+    """Provide a TestClient backed by temporary project and series stores."""
+    pipeline = api_module.ComicGenPipeline()
+    pipeline.data_file = str(tmp_path / "projects.json")
+    pipeline.series_data_file = str(tmp_path / "series.json")
+    pipeline.scripts = {}
+    pipeline.series_store = {}
+    monkeypatch.setattr(api_module, "pipeline", pipeline)
+    return TestClient(app)
 
 
 def test_film_pipeline_api_get_returns_usage_contract():
@@ -104,3 +119,55 @@ def test_film_pipeline_api_rejects_unknown_tagged_asset():
 
     assert response.status_code == 400
     assert "Unknown prop asset" in response.json()["detail"]
+
+
+def test_film_templates_api_returns_catalog():
+    """The template catalog API should expose the homepage template inventory."""
+    client = TestClient(app)
+
+    response = client.get("/film/templates")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["summary"] == {
+        "pilot_sample_count": 3,
+        "series_blueprint_count": 1,
+        "episode_count": 5,
+    }
+    assert data["pilot_samples"]["samples"][0]["target_duration_seconds"] == 75
+    assert data["series_blueprints"][0]["id"] == "night_signal_s01"
+
+
+def test_pilot_template_api_instantiates_draft_project(isolated_client):
+    """A pilot template can be copied into an editable standalone draft project."""
+    response = isolated_client.post(
+        "/film/templates/pilots/midnight_delivery_70s/instantiate"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["created_type"] == "pilot_project"
+    assert data["template_id"] == "midnight_delivery_70s"
+    assert data["next_hash"].endswith("/step/export")
+    assert data["project"]["title"] == "Midnight Delivery"
+    assert "customer ordered this meal ten years ago" in data["project"]["original_text"]
+
+
+def test_series_template_api_instantiates_five_episode_series(isolated_client):
+    """A series template can be copied into a five-episode Studio series."""
+    response = isolated_client.post(
+        "/film/templates/series/night_signal_s01/instantiate"
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["created_type"] == "series"
+    assert data["template_id"] == "night_signal_s01"
+    assert data["series"]["title"] == "Night Signal Season 1"
+    assert len(data["series"]["episode_ids"]) == 5
+    assert len(data["series"]["characters"]) == 1
+    assert len(data["series"]["scenes"]) == 5
+    assert len(data["series"]["props"]) == 2
+    assert len(data["episodes"]) == 5
+    assert data["episodes"][0]["episode_number"] == 1

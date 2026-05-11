@@ -28,6 +28,8 @@ from .models import (
     FinalEditTimeline,
     GenerationAttempt,
     GenerationLedger,
+    PilotSamplePack,
+    PilotSampleTemplate,
     PromptCompileRequest,
     ProductionBible,
     PropAsset,
@@ -54,7 +56,7 @@ from .qa import QAEngine
 from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
 from .retry import RetryEngine
 from .runtime import DryRunRuntimeAdapter, RuntimeRouter
-from .series import SeriesProductionPlanner
+from .series import FilmTemplateCatalogLoader, SeriesProductionPlanner
 from .shot_graph import ShotGraphBuilder
 from .state import FilmStateEngine
 from .story_graph import StoryGraphBuilder
@@ -85,9 +87,12 @@ __all__ = [
     "FilmProductionRun",
     "FilmState",
     "FilmStateEngine",
+    "FilmTemplateCatalogLoader",
     "GenerationAttempt",
     "GenerationLedger",
     "GenerationLedgerRecorder",
+    "PilotSamplePack",
+    "PilotSampleTemplate",
     "PromptCompileRequest",
     "PromptCompiler",
     "ProductionBible",

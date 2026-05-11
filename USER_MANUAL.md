@@ -1,6 +1,6 @@
 # AIDrama Studio 用户操作手册
 
-日期：2026-05-09
+日期：2026-05-11
 
 本手册面向 2-3 人 AI 漫剧小团队，目标是从零配置环境，到做出一部多集 AI 漫剧的可复盘生产流程。
 
@@ -26,8 +26,8 @@
 | Retry Engine | 已完成 | Film Core retry policy |
 | Generation Ledger | 已完成 | 第 9 步、Film Core run metadata |
 | Batch Production | 已完成 | `BatchProductionRunner`、系列蓝图 |
-| 5 集题材验证模板 | 已完成 | `samples/series_production/vertical_suspense_5ep.yaml` |
-| 3 个 60-90 秒样片模板 | 已完成 | `samples/pilot_samples/three_60_90s_pilots.yaml` |
+| 5 集题材验证模板 | 已完成 | 首页“AI 漫剧模板中心”、`samples/series_production/vertical_suspense_5ep.yaml` |
+| 3 个 60-90 秒样片模板 | 已完成 | 首页“AI 漫剧模板中心”、`samples/pilot_samples/three_60_90s_pilots.yaml` |
 | 真实视频生成 | 已具备应用层入口 | UI 视频生成步骤，依赖供应商 Key 和额度 |
 | Film Core 多供应商真实 Runtime | 抽象已完成，适配器按供应商继续扩展 | `RuntimeRouter` |
 
@@ -90,6 +90,7 @@ make up
 - Studio：`http://localhost:3014`
 - Backend API：`http://localhost:17177/docs`
 - Film Core dry-run API：`http://localhost:17177/film/pipeline/run`
+- 模板目录 API：`http://localhost:17177/film/templates`
 
 健康检查：
 
@@ -100,6 +101,25 @@ curl -sS http://localhost:17177/config/info
 ```
 
 ## 4. UI 从零做一部多集 AI 漫剧
+
+### 4.0 先看首页模板中心
+
+打开 `http://localhost:3014` 后，首页顶部会出现“AI 漫剧模板中心”。
+
+这里能直接看到：
+
+- 3 个 60-90 秒样片模板：Night Signal、Contract Bride Counterattack、Midnight Delivery。
+- 1 个 5 集系列验证模板：Night Signal Season 1。
+- 每个样片的题材、目标时长、钩子、生产风险和成功指标。
+- 5 集蓝图的集数、角色数、场景数、道具数、服装数和单集目标时长。
+
+按钮含义：
+
+- “创建样片”：把单个 60-90 秒样片复制成独立项目，并跳到该项目第 9 步 `QA & Export`。
+- “创建 5 集系列”：把 5 集蓝图复制成一个系列，自动创建 5 个单集草稿，并写入共享角色、场景、道具资产。
+- “刷新模板”：重新读取后端 `/film/templates`，用于确认 `samples/` 文件和 UI 是否一致。
+
+这一步不消耗真实模型额度。模板项目会以草稿形式进入工作台，后续是否分析剧本、生成图像、生成视频、配音和合成由你手动控制。
 
 ### 4.1 新建系列
 
@@ -224,6 +244,17 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 
 如果 Final Edit 报 `unresolved_shots`，说明还有镜头没有 selected output，要回到视频候选选择步骤补齐。
 
+### 4.9 推荐最快路径：从模板到 5 集样片
+
+1. 打开 `http://localhost:3014`。
+2. 在“AI 漫剧模板中心”点击 `创建 5 集系列`。
+3. 进入 `Night Signal Season 1` 系列页，确认左侧有 EP01-EP05。
+4. 打开 EP01，进入第 9 步 `QA & Export`，确认九阶段 dry-run 全部可见。
+5. 回到 EP01 的剧本、资产、分镜步骤，按真实生产需要补参考图和细化镜头。
+6. 逐集完成图片候选、视频候选、配音、字幕和合成。
+7. 每集导出前先看 QA、Retry、Ledger 和 unresolved shots。
+8. 五集导出后，把完播率、评论、收藏、转发写回复盘表，决定是否扩成下一季。
+
 ## 5. 用系列蓝图批量验证 5 集
 
 本仓库提供一个可执行的 5 集模板：
@@ -242,6 +273,12 @@ samples/series_production/vertical_suspense_5ep.yaml
 - continuity locks。
 - retry policy。
 - dry-run backend。
+
+页面查看方式：
+
+- 首页：`http://localhost:3014` 的“AI 漫剧模板中心”。
+- API：`GET http://localhost:17177/film/templates`。
+- 文件：`samples/series_production/vertical_suspense_5ep.yaml`。
 
 用 Python 直接 dry-run：
 
@@ -282,6 +319,12 @@ samples/pilot_samples/three_60_90s_pilots.yaml
 | Contract Bride Counterattack | 复仇甜宠 | 对话近景、服装一致性、反转爽点 |
 | Midnight Delivery | 都市奇幻 | 场景连续性和地址反转 |
 
+页面查看方式：
+
+- 首页：`http://localhost:3014` 的“AI 漫剧模板中心”。
+- API：`GET http://localhost:17177/film/templates`。
+- 文件：`samples/pilot_samples/three_60_90s_pilots.yaml`。
+
 操作建议：
 
 1. 每个方向只做 60-90 秒。
@@ -299,6 +342,24 @@ http://localhost:3014/film/pipeline/run
 ```
 
 会看到 endpoint 说明和 sample payload。
+
+模板目录：
+
+```bash
+curl -sS http://localhost:17177/film/templates
+```
+
+从样片模板创建独立项目：
+
+```bash
+curl -sS -X POST http://localhost:17177/film/templates/pilots/midnight_delivery_70s/instantiate
+```
+
+从 5 集蓝图创建系列：
+
+```bash
+curl -sS -X POST http://localhost:17177/film/templates/series/night_signal_s01/instantiate
+```
 
 命令行 dry-run 示例：
 

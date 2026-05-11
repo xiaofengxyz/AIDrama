@@ -19,6 +19,7 @@ const SeriesDetailPage = dynamic(() => import("@/components/series/SeriesDetailP
 const ImportFileDialog = dynamic(() => import("@/components/series/ImportFileDialog"), { ssr: false });
 const SettingsPage = dynamic(() => import("@/components/settings/SettingsPage"), { ssr: false });
 const AssetLibraryPage = dynamic(() => import("@/components/library/AssetLibraryPage"), { ssr: false });
+const TemplateLibraryPanel = dynamic(() => import("@/components/modules/TemplateLibraryPanel"), { ssr: false });
 
 // ── Create Series Dialog ──
 function CreateSeriesDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -519,6 +520,8 @@ export default function Home() {
     // Workspace view
     return (
       <div className="container mx-auto px-6 py-8">
+        <TemplateLibraryPanel onCreated={syncAll} />
+
         {/* Content Section */}
         {totalCount === 0 ? (
           <motion.div
