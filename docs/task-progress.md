@@ -22,7 +22,7 @@
 | 2. 工作流状态实现 | 已完成 | 新增 workflow-first 状态层、模型建议目录、项目 workflow API、阶段重生成事件 | `tests/test_film_workflow.py`、`GET /projects/{id}/workflow` |
 | 3. 导出兜底实现 | 已完成 | `Start Render` 有 selected clips 时合成视频，缺 clips 时导出 render package，不再泛化失败 | `/projects/{id}/export`、前端 workflow API 测试 |
 | 4. UI 与文档 | 已完成 | QA & Export 增加 CineForge Workflow 面板、更新手册/测试文档/架构文档 | `frontend/src/components/modules/FilmEngineControlRoom.tsx`、`USER_MANUAL.md` |
-| 5. 验证清理提交推送 | 进行中 | 后端/前端/容器回归已通过，冲突检查已通过，准备提交并 push 必要修改 | pytest、vitest、tsc、docker、git |
+| 5. 验证清理提交推送 | 已完成 | 后端/前端/容器回归已通过，冲突检查已通过，提交并 push 必要修改 | pytest、vitest、tsc、docker、git |
 
 本轮初步结论：
 
@@ -48,6 +48,8 @@
 - `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，154 passed，74 warnings。
 - `git diff --check`：通过。
 - `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Add CineForge workflow export fallback"`：已创建提交 `4e65fb41`。
+- `git push origin main`：已推送 `4e65fb41` 到 `origin/main`。
 
 ### 2026-05-11 服务重启、模板可见入口与全链路使用手册复核
 
