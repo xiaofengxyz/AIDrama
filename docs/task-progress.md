@@ -23,7 +23,7 @@
 | 3. Workflow Prompt 开关 | 已完成 | 为 00-09 prompt 文件增加 `workflow_switch`，新增 parser、execution plan 和 `/film/workflow/prompts` API | `tests/test_workflow_prompt_switches.py` |
 | 4. 文字到小说到漫剧 | 已完成 | 新增 `NovelEngine`、`AutoDramaPipeline` 和 `/film/auto-drama/run`，支持自动完整 dry-run 或在非自动阶段停下 | `tests/test_auto_drama_pipeline.py`、API 测试 |
 | 5. 测试与文档 | 已完成 | 更新测试用例文档、用户操作手册、前端 API 类型和环境配置页面字段 | pytest、tsc、vitest、Docker 复测 |
-| 6. 清理提交推送 | 待执行 | 最终冲突检查、全量验证、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
+| 6. 清理提交推送 | 已完成 | 最终冲突检查、全量验证、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
 
 本轮阶段性结论：
 
@@ -48,6 +48,10 @@
 - `curl http://localhost:17177/config/env`：HTTP 200，返回 DashScope/OpenAI/Ark/PixVerse/Vidu/Kling 配置字段和 endpoint overrides。
 - `docker compose exec -T backend python -m pytest -q -s /app/tests/test_model_runtime_config.py /app/tests/test_workflow_prompt_switches.py /app/tests/test_auto_drama_pipeline.py /app/tests/test_film_workflow.py /app/tests/test_film_pipeline_api.py`：通过，25 passed。
 - `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，165 passed，76 warnings。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Add Auto Drama workflow controls"`：已创建提交 `4404ab10`。
+- `git push origin main`：已推送 `4404ab10` 到 `origin/main`。
 
 ### 2026-05-12 CineForge 工作流、模型建议与 QA Export 导出兜底
 
