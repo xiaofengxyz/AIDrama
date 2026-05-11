@@ -16,7 +16,7 @@ import os
 import logging
 from typing import Dict, List, Optional, Any
 
-from ...utils.endpoints import get_provider_base_url
+from ...models.runtime_config import resolve_model_runtime_endpoint
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +32,8 @@ class LLMAdapter:
     @property
     def is_configured(self) -> bool:
         if self.provider == "openai":
-            return bool(os.getenv("OPENAI_API_KEY"))
-        return bool(os.getenv("DASHSCOPE_API_KEY"))
+            return resolve_model_runtime_endpoint({}, "OPENAI").is_configured
+        return resolve_model_runtime_endpoint({}, "DASHSCOPE").is_configured
 
     def _get_client(self):
         """Get or create the OpenAI-compatible client (lazy, cached)."""
@@ -46,15 +46,21 @@ class LLMAdapter:
                 )
 
             if self.provider == "openai":
+                endpoint = resolve_model_runtime_endpoint({}, "OPENAI")
                 self._client = OpenAI(
-                    api_key=os.getenv("OPENAI_API_KEY"),
-                    base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+                    api_key=endpoint.api_key,
+                    base_url=endpoint.base_url,
                 )
             else:
                 # DashScope uses OpenAI-compatible endpoint
+                endpoint = resolve_model_runtime_endpoint({}, "DASHSCOPE")
+                compatible_base_url = (
+                    os.getenv("DASHSCOPE_COMPATIBLE_BASE_URL")
+                    or f"{endpoint.base_url}/compatible-mode/v1"
+                )
                 self._client = OpenAI(
-                    api_key=os.getenv("DASHSCOPE_API_KEY"),
-                    base_url=f"{get_provider_base_url('DASHSCOPE')}/compatible-mode/v1",
+                    api_key=endpoint.api_key,
+                    base_url=compatible_base_url.rstrip("/"),
                 )
         return self._client
 

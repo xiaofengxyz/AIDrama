@@ -32,8 +32,11 @@
 | Film Core 多供应商真实 Runtime | 抽象已完成，适配器按供应商继续扩展 | `RuntimeRouter` |
 | CineForge 工作流状态 | 已完成 | `GET /projects/{id}/workflow`、第 9 步 QA & Export |
 | Start Render 兜底导出 | 已完成 | 有选中视频时导出 mp4；缺视频时导出 render package |
+| 统一模型适配配置层 | 已完成 | `/config/env`、Settings、`src/models/runtime_config.py` |
+| Codex Workflow 自动/人工开关 | 已完成 | `docs/Codex_Workflow_Prompts/*.md`、`GET /film/workflow/prompts` |
+| 一段文字到小说再到漫剧 dry-run | 已完成 | `POST /film/auto-drama/run`，可自动创建 Studio 草稿项目 |
 
-结论：文档要求的工业级“可测试闭环”已经完成，且工作流状态、可编辑/可重生成意图、QA/Retry 和导出兜底已经持久化。真实出片仍需要配置模型 Key，并在 UI 的图片、视频、配音、合成步骤里实际调用模型。
+结论：文档要求的工业级“可测试闭环”已经完成，且工作流状态、可编辑/可重生成意图、QA/Retry、导出兜底、模型配置隔离、工作流自动/人工停顿和文字到漫剧 dry-run 已经具备。真实出片仍需要配置模型 Key，并在 UI 的图片、视频、配音、合成步骤里实际调用模型。
 
 ## 2. 本机准备
 
@@ -89,9 +92,33 @@ bash scripts/bootstrap_env.sh
 | 环境变量 | 说明 | 示例 |
 |---|---|---|
 | `DASHSCOPE_API_KEY` | DashScope API Key | `sk-xxx` |
-| `DASHSCOPE_API_BASE_URL` | DashScope 兼容 base url，可选 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `DASHSCOPE_BASE_URL` | DashScope provider base url，可选 | `https://dashscope.aliyuncs.com` |
+| `DASHSCOPE_COMPATIBLE_BASE_URL` | DashScope OpenAI-compatible base url，可选 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `LLM_PROVIDER` | 文本模型供应商 | `dashscope` 或 `openai` |
+| `OPENAI_API_KEY` | OpenAI-compatible 文本模型 Key，可接 OpenAI、DeepSeek、Ollama 代理等 | `sk-xxx` |
+| `OPENAI_BASE_URL` | OpenAI-compatible base url | `https://api.openai.com/v1` |
+| `OPENAI_MODEL` | OpenAI-compatible 模型名 | `gpt-4o` / `deepseek-chat` |
+| `KLING_ACCESS_KEY` / `KLING_SECRET_KEY` | Kling vendor-direct 凭据 | `xxx` |
+| `VIDU_API_KEY` | Vidu vendor-direct 凭据 | `xxx` |
+| `ARK_API_KEY` / `ARK_BASE_URL` | Volcano Ark / Seedance 凭据与 base url | `https://ark.cn-beijing.volces.com/api/v3` |
+| `PIXVERSE_API_KEY` / `PIXVERSE_BASE_URL` | PixVerse 预留适配器凭据与 base url | `https://api.pixverse.ai` |
 | `OSS_BUCKET_NAME` | OSS Bucket，可选 | `my-aidrama-bucket` |
 | `OSS_BASE_PATH` | OSS 路径前缀，可选 | `aidrama` |
+
+模型调用现在统一经过适配配置层：
+
+- 适配器优先读取单个模型 config 里的 `api_key`、`base_url` 或 `baseurl`。
+- 如果模型 config 没写，再读取 `{PROVIDER}_API_KEY` 和 `{PROVIDER}_BASE_URL` 环境变量。
+- 如果 base url 仍为空，再使用内置默认值。
+- 诊断接口和日志只暴露“是否配置”和 base url，不应该打印真实 API Key。
+
+在 UI 中配置：
+
+1. 打开首页右上角环境配置弹窗，或进入 Settings。
+2. 填 `DashScope API Key`。
+3. 如需 OpenAI-compatible 文本模型，填 `LLM Provider=openai`、`OpenAI-compatible API Key`、模型名，并在 Advanced API Endpoints 填 `OpenAI-compatible Base URL`。
+4. 如需 Kling/Vidu vendor-direct，先把 Provider Mode 切到 `Vendor Direct`，再填对应 Key。
+5. 如需 Ark/Seedance 或 PixVerse，填对应 API Key 和 Advanced Base URL。
 
 第 9 步还会读取模型建议目录：
 
@@ -100,6 +127,21 @@ curl -sS http://localhost:17177/film/runtime/recommendations
 ```
 
 这个接口不会消耗模型额度，它只告诉你每个阶段推荐使用哪个模型、需要哪些环境变量，以及哪些适配器是“当前可用”还是“后续升级”。
+
+工作流 prompt 开关目录：
+
+```bash
+curl -sS http://localhost:17177/film/workflow/prompts
+```
+
+每个 `docs/Codex_Workflow_Prompts/*.md` 文件顶部都有 `workflow_switch`：
+
+- `auto_advance: true`：该阶段完成后自动进入下一阶段。
+- `auto_advance: false`：该阶段完成后停止。
+- `requires_human_review: true`：即使阶段完成，也等待人工确认。
+- `stop_after_stage: true`：显式要求停在该阶段后。
+
+默认 00-09 全部是自动模式，所以一键 dry-run 会完整走到 Final Integration。制作人要人工审某一阶段时，改对应 prompt 文件开关，或在 API 请求中传 `auto_overrides`。
 
 配置完成后启动：
 
@@ -123,6 +165,42 @@ curl -sS http://localhost:17177/config/info
 ```
 
 ## 4. UI 从零做一部多集 AI 漫剧
+
+### 4.0A 一键从一句话生成 dry-run 漫剧包
+
+如果你只有一个故事点子，还没有小说和分镜，可以先用 Auto Drama API 生成可编辑草稿：
+
+```bash
+curl -sS -X POST http://localhost:17177/film/auto-drama/run \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "title": "夜半信号",
+    "seed_text": "女调查员接到一通来自十年前死者的电话，电话里的人知道她下一步会去哪里。",
+    "target_chapters": 5,
+    "backend": "dry_run",
+    "persist_project": true
+  }'
+```
+
+返回内容包含：
+
+- `novel_plan`：世界观、关系图、章节大纲、每集悬念。
+- `screenplay_text`：由小说计划编译出的可拍摄剧本文本。
+- `story_graph` / `director_program` / `film_run` / `final_edit`：Film Core dry-run 结果。
+- `project`：写入 Studio 的草稿项目。
+- `next_hash`：例如 `#/project/{projectId}/step/export`，可直接跳到第 9 步验收。
+
+如果要在小说阶段停下来让制作人审大纲，可以传：
+
+```json
+{
+  "auto_overrides": {
+    "02_stage1_novel_engine": false
+  }
+}
+```
+
+这时接口会返回 `status=waiting_for_user`、`waiting_for_stage=stage1_novel_engine`，并保留已生成的 `novel_plan`，不会继续生成后面的 Film Core 产物。
 
 ### 4.0 先看首页模板中心
 
@@ -435,6 +513,21 @@ curl -sS -X POST http://localhost:17177/projects/{projectId}/workflow/stages/vid
 ```
 
 这一步只记录可恢复的编辑/重生成事件；具体生成仍从 UI 的资产、分镜、视频或配音步骤执行。
+
+一键 Auto Drama：
+
+```bash
+curl -sS http://localhost:17177/film/auto-drama/run
+curl -sS -X POST http://localhost:17177/film/auto-drama/run \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Auto Pilot","seed_text":"A courier receives a call from a dead customer.","target_chapters":3}'
+```
+
+工作流 prompt 开关：
+
+```bash
+curl -sS http://localhost:17177/film/workflow/prompts
+```
 
 ## 8. 如何解决行业痛点
 

@@ -8,7 +8,6 @@ from dashscope import VideoSynthesis
 import dashscope
 from .base import VideoGenModel
 from ..utils import get_logger
-from ..utils.endpoints import get_provider_base_url
 
 from typing import Callable, Dict, List, Mapping, Optional, Tuple
 
@@ -23,14 +22,19 @@ class WanxModel(VideoGenModel):
     def __init__(self, config):
         super().__init__(config)
 
-        self.params = config.get('params', {})
+        self.params = self.config.get('params', {})
 
     @property
     def api_key(self):
-        api_key = os.getenv("DASHSCOPE_API_KEY")
+        api_key = self.resolve_endpoint("DASHSCOPE").api_key
         if not api_key:
             logger.warning("Dashscope API Key not found in config or environment variables.")
         return api_key
+
+    @property
+    def base_url(self) -> str:
+        """Return the configured DashScope base URL through the runtime adapter layer."""
+        return self.resolve_endpoint("DASHSCOPE").base_url
 
     def _resolve_provider_backend_for_model(self, model_name: str) -> str:
         try:
@@ -140,7 +144,7 @@ class WanxModel(VideoGenModel):
         if not os.path.exists(local_path):
             raise FileNotFoundError(f"Local media file not found: {local_path}")
 
-        base = get_provider_base_url("DASHSCOPE")
+        base = self.base_url
         policy_url = f"{base}/api/v1/uploads"
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
@@ -397,7 +401,7 @@ class WanxModel(VideoGenModel):
                                   shot_type: str = "single",
                                   extra_headers: Optional[Mapping[str, str]] = None) -> str:
         """Generate video using Wan I2V (2.5 or 2.6) via HTTP API (asynchronous with polling)."""
-        base = get_provider_base_url("DASHSCOPE")
+        base = self.base_url
         create_url = f"{base}/api/v1/services/aigc/video-generation/video-synthesis"
 
         headers = {
@@ -505,7 +509,7 @@ class WanxModel(VideoGenModel):
                                   shot_type: str = "multi", seed: int = None,
                                   extra_headers: Optional[Mapping[str, str]] = None) -> str:
         """Generate video using Wan R2V via HTTP API (asynchronous with polling)."""
-        base = get_provider_base_url("DASHSCOPE")
+        base = self.base_url
         create_url = f"{base}/api/v1/services/aigc/video-generation/video-synthesis"
 
         headers = {

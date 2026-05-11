@@ -13,7 +13,6 @@ from typing import Dict, Any, Tuple
 import requests
 
 from .base import VideoGenModel
-from ..utils.endpoints import get_provider_base_url
 from ..utils.oss_utils import OSSImageUploader
 from ..utils.provider_media import resolve_media_input
 
@@ -25,8 +24,18 @@ DEFAULT_I2V_MODEL = "viduq3-pro"
 class ViduModel(VideoGenModel):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        self.api_key = config.get("api_key") or os.getenv("VIDU_API_KEY", "")
-        self.model_name = config.get("params", {}).get("model_name", DEFAULT_I2V_MODEL)
+        self._api_key_override = self.config.get("api_key") or ""
+        self.model_name = self.config.get("params", {}).get("model_name", DEFAULT_I2V_MODEL)
+
+    @property
+    def api_key(self) -> str:
+        """Resolve the current Vidu API key from config override or env."""
+        return self._api_key_override or self.resolve_endpoint("VIDU").api_key
+
+    @property
+    def base_url(self) -> str:
+        """Return the configured Vidu base URL through the runtime adapter layer."""
+        return self.resolve_endpoint("VIDU").base_url
 
     def _headers(self) -> Dict[str, str]:
         return {
@@ -87,7 +96,7 @@ class ViduModel(VideoGenModel):
         start_time = time.time()
 
         is_i2v = bool(img_url or img_path)
-        base_url = get_provider_base_url("VIDU")
+        base_url = self.base_url
 
         if is_i2v:
             task_id, used_model = self._submit_i2v(
@@ -173,7 +182,7 @@ class ViduModel(VideoGenModel):
             "bgm": bgm,
         }
 
-        submit_url = f"{get_provider_base_url('VIDU')}/text2video"
+        submit_url = f"{self.base_url}/text2video"
         logger.info(f"[Vidu] Submitting t2v task (model={used_model}, duration={duration}s)")
 
         resp = requests.post(submit_url, headers=self._headers(), json=body, timeout=30)
@@ -208,7 +217,7 @@ class ViduModel(VideoGenModel):
             "audio": audio,
         }
 
-        submit_url = f"{get_provider_base_url('VIDU')}/img2video"
+        submit_url = f"{self.base_url}/img2video"
         logger.info(f"[Vidu] Submitting i2v task (model={used_model}, duration={duration}s)")
 
         resp = requests.post(submit_url, headers=self._headers(), json=body, timeout=30)

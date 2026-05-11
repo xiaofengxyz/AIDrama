@@ -16,15 +16,17 @@ logger = logging.getLogger(__name__)
 class DoubaoModel(VideoGenModel):
     def __init__(self, config: dict):
         super().__init__(config)
-        self.api_key = os.getenv("ARK_API_KEY")
-        self.model_name = config.get('params', {}).get('model_name', 'doubao-seedance-1-0-pro-fast-251015')
+        endpoint = self.resolve_endpoint("ARK", api_key_env="ARK_API_KEY")
+        self.api_key = endpoint.api_key
+        self.base_url = endpoint.base_url
+        self.model_name = self.config.get('params', {}).get('model_name', 'doubao-seedance-1-0-pro-fast-251015')
 
         if not self.api_key:
             logger.warning("ARK_API_KEY not found in environment variables.")
 
         if Ark:
             self.client = Ark(
-                base_url="https://ark.cn-beijing.volces.com/api/v3",
+                base_url=self.base_url,
                 api_key=self.api_key
             )
         else:

@@ -16,6 +16,7 @@ import traceback
 from .pipeline import ComicGenPipeline
 from .models import (
     Character,
+    GenerationStatus,
     PromptConfig,
     Prop,
     ProviderBackend,
@@ -23,6 +24,7 @@ from .models import (
     Scene,
     Script,
     Series,
+    StoryboardFrame,
     VideoTask,
 )
 from .llm import ScriptProcessor, DEFAULT_STORYBOARD_POLISH_PROMPT, DEFAULT_VIDEO_POLISH_PROMPT, DEFAULT_R2V_POLISH_PROMPT
@@ -30,6 +32,7 @@ from ...utils.oss_utils import OSSImageUploader, sign_oss_urls_in_data
 from ...utils import setup_logging
 from ...film_engine import (
     AssetRegistry,
+    AutoDramaPipeline,
     CharacterAsset as FilmCharacterAsset,
     CharacterRegistry as FilmCharacterRegistry,
     CostumeAsset as FilmCostumeAsset,
@@ -45,9 +48,11 @@ from ...film_engine import (
     SeriesProductionBlueprint,
     WorkflowEditEvent,
     WorkflowStateStore,
+    build_prompt_execution_plan,
     evaluate_project_workflow,
     get_model_recommendation_catalog,
     get_workflow_stage_definitions,
+    load_workflow_prompt_modules,
 )
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv, set_key
@@ -215,6 +220,19 @@ class FilmPipelineRunRequest(BaseModel):
     continuity_locks: Dict[str, Any] = Field(default_factory=dict)
 
 
+class AutoDramaRunRequest(BaseModel):
+    """One-click text -> novel -> AI drama production request."""
+
+    seed_text: str = Field(..., min_length=1)
+    title: str = "Untitled AI Drama"
+    target_chapters: int = Field(3, ge=1, le=12)
+    backend: FilmRuntimeBackend = FilmRuntimeBackend.DRY_RUN
+    max_attempts: int = Field(2, ge=1, le=8)
+    min_score: float = Field(0.82, ge=0.0, le=1.0)
+    persist_project: bool = True
+    auto_overrides: Dict[str, bool] = Field(default_factory=dict)
+
+
 class FilmTemplateInstantiationResponse(BaseModel):
     """Response returned after a repository template is copied into the workspace."""
 
@@ -359,6 +377,93 @@ def _instantiate_series_blueprint(
     return refreshed_series, created_episodes
 
 
+def _persist_auto_drama_project(auto_run) -> Script:
+    """Copy auto-drama dry-run artifacts into an editable Studio project."""
+    project = pipeline.create_project(auto_run.title, auto_run.screenplay_text, True)
+    production_run = auto_run.production_run
+    if not production_run:
+        return project
+
+    director_program = production_run.director_program
+    character_names = director_program.characters or ["Protagonist"]
+    character_map: Dict[str, str] = {}
+    project.characters = []
+    for name in character_names:
+        character_id = f"auto_char_{uuid.uuid4().hex[:8]}"
+        character_map[name] = character_id
+        project.characters.append(
+            Character(
+                id=character_id,
+                name=name,
+                description=f"Auto-generated character placeholder for {name}.",
+                status=GenerationStatus.PENDING,
+            )
+        )
+
+    scene = Scene(
+        id=f"auto_scene_{uuid.uuid4().hex[:8]}",
+        name=director_program.scene.location or "Auto Drama Scene",
+        description=(
+            f"Mood: {director_program.scene.mood}; "
+            f"pacing: {director_program.scene.pacing}; "
+            f"tone: {director_program.scene.tone or 'continuity-first'}"
+        ),
+        lighting_mood=director_program.scene.lighting,
+        status=GenerationStatus.PENDING,
+    )
+    project.scenes = [scene]
+
+    prop_map: Dict[str, str] = {}
+    project.props = []
+    for prop_id in director_program.props:
+        studio_prop_id = f"auto_prop_{uuid.uuid4().hex[:8]}"
+        prop_map[prop_id] = studio_prop_id
+        project.props.append(
+            Prop(
+                id=studio_prop_id,
+                name=prop_id,
+                description=f"Auto-generated prop placeholder for {prop_id}.",
+                status=GenerationStatus.PENDING,
+            )
+        )
+
+    project.frames = []
+    for shot in director_program.shots:
+        character_ids = [
+            character_map[name]
+            for name in (director_program.characters or [])
+            if name in character_map
+        ]
+        project.frames.append(
+            StoryboardFrame(
+                id=shot.id,
+                scene_id=scene.id,
+                character_ids=character_ids,
+                prop_ids=[prop_map[prop_id] for prop_id in shot.prop_ids if prop_id in prop_map],
+                action_description=shot.action or shot.dialogue or shot.target or "",
+                facial_expression=shot.emotion,
+                dialogue=shot.dialogue,
+                speaker=shot.target if shot.dialogue else None,
+                camera_angle=shot.framing or shot.shot_type,
+                camera_movement=shot.movement,
+                composition=shot.lens,
+                atmosphere=shot.pacing,
+                image_prompt=shot.action or shot.dialogue or "",
+                video_prompt="; ".join(
+                    part
+                    for part in [shot.action, shot.movement, shot.emotion]
+                    if part
+                ),
+                status=GenerationStatus.PENDING,
+            )
+        )
+
+    project.updated_at = time.time()
+    pipeline.scripts[project.id] = project
+    pipeline._save_data()
+    return project
+
+
 @app.get("/film/templates")
 async def get_film_templates():
     """Return visible AI mini-drama templates for the Studio home page."""
@@ -426,6 +531,99 @@ async def instantiate_series_template(blueprint_id: str):
 async def get_runtime_recommendations():
     """Return Bailian-first model choices for each production workflow stage."""
     return JSONResponse(content=jsonable_encoder(get_model_recommendation_catalog()))
+
+
+@app.get("/film/workflow/prompts")
+async def get_workflow_prompt_switches():
+    """Return Codex workflow prompt modules with auto/manual execution switches."""
+    prompt_root = os.path.join(_project_root, "docs", "Codex_Workflow_Prompts")
+    try:
+        modules = load_workflow_prompt_modules(prompt_root)
+        execution_plan = build_prompt_execution_plan(modules)
+        return JSONResponse(
+            content=jsonable_encoder(
+                {
+                    "status": "ready",
+                    "source": "docs/Codex_Workflow_Prompts",
+                    "modules": modules,
+                    "execution_plan": execution_plan,
+                }
+            )
+        )
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=500, detail=str(error))
+
+
+@app.get("/film/auto-drama/run")
+async def describe_auto_drama_run():
+    """Describe the one-click text -> novel -> drama endpoint."""
+    return {
+        "status": "ready",
+        "endpoint": "/film/auto-drama/run",
+        "method": "POST",
+        "message": "Use POST with seed_text to expand a novel plan and compile an AI drama dry-run package.",
+        "default_backend": FilmRuntimeBackend.DRY_RUN.value,
+        "switch_source": "docs/Codex_Workflow_Prompts",
+        "sample_payload": {
+            "title": "Night Signal Pilot",
+            "seed_text": "A courier receives a phone call from a customer who died ten years ago.",
+            "target_chapters": 3,
+            "backend": FilmRuntimeBackend.DRY_RUN.value,
+            "persist_project": True,
+        },
+    }
+
+
+@app.post("/film/auto-drama/run")
+async def run_auto_drama(request: AutoDramaRunRequest):
+    """Run text -> Novel Engine -> Film Core and optionally create a Studio draft."""
+    try:
+        prompt_root = os.path.join(_project_root, "docs", "Codex_Workflow_Prompts")
+        auto_run = AutoDramaPipeline(prompt_root=prompt_root).run(
+            request.seed_text,
+            title=request.title,
+            target_chapters=request.target_chapters,
+            backend=request.backend,
+            retry_policy=FilmRetryPolicy(
+                max_attempts=request.max_attempts,
+                min_score=request.min_score,
+            ),
+            auto_overrides=request.auto_overrides,
+        )
+        project = None
+        if request.persist_project and auto_run.screenplay_text:
+            project = _persist_auto_drama_project(auto_run)
+            _persist_project_workflow(project)
+
+        production_run = auto_run.production_run
+        response = {
+            "status": auto_run.status,
+            "waiting_for_stage": auto_run.waiting_for_stage,
+            "title": auto_run.title,
+            "novel_plan": auto_run.novel_plan,
+            "screenplay_text": auto_run.screenplay_text,
+            "prompt_execution_plan": auto_run.prompt_execution_plan,
+            "project": project,
+            "next_hash": f"#/project/{project.id}/step/export" if project else None,
+            "story_graph": production_run.story_graph if production_run else None,
+            "director_program": production_run.director_program if production_run else None,
+            "film_run": {
+                "summary": production_run.film_run.generation_ledger.summary()
+                if production_run and production_run.film_run.generation_ledger
+                else {},
+                "shot_graph": production_run.film_run.graph if production_run else None,
+                "final_state": production_run.film_run.final_state if production_run else None,
+                "qa_reports": production_run.film_run.qa_reports if production_run else [],
+            },
+            "generation_ledger": production_run.film_run.generation_ledger if production_run else None,
+            "final_edit": production_run.final_edit if production_run else None,
+            "metadata": auto_run.metadata,
+        }
+        return signed_response(response)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except KeyError as error:
+        raise HTTPException(status_code=400, detail=str(error))
 
 
 @app.get("/projects/{script_id}/workflow")
@@ -1066,6 +1264,10 @@ async def import_file_confirm(request: ConfirmImportRequest):
 
 class EnvConfig(ProviderRoutingConfig):
     DASHSCOPE_API_KEY: Optional[str] = None
+    DASHSCOPE_COMPATIBLE_BASE_URL: Optional[str] = None
+    LLM_PROVIDER: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: Optional[str] = None
     ALIBABA_CLOUD_ACCESS_KEY_ID: Optional[str] = None
     ALIBABA_CLOUD_ACCESS_KEY_SECRET: Optional[str] = None
     OSS_BUCKET_NAME: Optional[str] = None
@@ -1074,6 +1276,8 @@ class EnvConfig(ProviderRoutingConfig):
     KLING_ACCESS_KEY: Optional[str] = None
     KLING_SECRET_KEY: Optional[str] = None
     VIDU_API_KEY: Optional[str] = None
+    ARK_API_KEY: Optional[str] = None
+    PIXVERSE_API_KEY: Optional[str] = None
     endpoint_overrides: Dict[str, str] = Field(default_factory=dict)
 
 
@@ -2472,6 +2676,10 @@ async def get_env_config():
 
         return {
             "DASHSCOPE_API_KEY": os.getenv("DASHSCOPE_API_KEY", ""),
+            "DASHSCOPE_COMPATIBLE_BASE_URL": os.getenv("DASHSCOPE_COMPATIBLE_BASE_URL", ""),
+            "LLM_PROVIDER": os.getenv("LLM_PROVIDER", ""),
+            "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+            "OPENAI_MODEL": os.getenv("OPENAI_MODEL", ""),
             "ALIBABA_CLOUD_ACCESS_KEY_ID": os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID", ""),
             "ALIBABA_CLOUD_ACCESS_KEY_SECRET": os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", ""),
             "OSS_BUCKET_NAME": os.getenv("OSS_BUCKET_NAME", ""),
@@ -2480,6 +2688,8 @@ async def get_env_config():
             "KLING_ACCESS_KEY": os.getenv("KLING_ACCESS_KEY", ""),
             "KLING_SECRET_KEY": os.getenv("KLING_SECRET_KEY", ""),
             "VIDU_API_KEY": os.getenv("VIDU_API_KEY", ""),
+            "ARK_API_KEY": os.getenv("ARK_API_KEY", ""),
+            "PIXVERSE_API_KEY": os.getenv("PIXVERSE_API_KEY", ""),
             "KLING_PROVIDER_MODE": _normalize_provider_mode(os.getenv("KLING_PROVIDER_MODE")),
             "VIDU_PROVIDER_MODE": _normalize_provider_mode(os.getenv("VIDU_PROVIDER_MODE")),
             "PIXVERSE_PROVIDER_MODE": _normalize_provider_mode(os.getenv("PIXVERSE_PROVIDER_MODE")),

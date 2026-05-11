@@ -17,6 +17,9 @@ COPY src/ src/
 # Copy repository sample templates used by Film Core template catalog APIs.
 COPY samples/ samples/
 
+# Copy workflow prompt switches used by Auto Drama and workflow gate APIs.
+COPY docs/Codex_Workflow_Prompts/ docs/Codex_Workflow_Prompts/
+
 # Create output directories
 RUN mkdir -p output/uploads output/video output/assets output/storyboard \
     output/audio output/export output/video_inputs output/outputs/videos

@@ -11,6 +11,10 @@ type ProviderMode = "dashscope" | "vendor";
 
 interface EnvConfig {
   DASHSCOPE_API_KEY: string;
+  DASHSCOPE_COMPATIBLE_BASE_URL: string;
+  LLM_PROVIDER: string;
+  OPENAI_API_KEY: string;
+  OPENAI_MODEL: string;
   ALIBABA_CLOUD_ACCESS_KEY_ID: string;
   ALIBABA_CLOUD_ACCESS_KEY_SECRET: string;
   OSS_BUCKET_NAME: string;
@@ -22,6 +26,8 @@ interface EnvConfig {
   KLING_ACCESS_KEY: string;
   KLING_SECRET_KEY: string;
   VIDU_API_KEY: string;
+  ARK_API_KEY: string;
+  PIXVERSE_API_KEY: string;
   endpoint_overrides: Record<string, string>;
   [key: string]: string | Record<string, string>;
 }
@@ -30,10 +36,17 @@ const ENDPOINT_PROVIDERS = [
   { key: "DASHSCOPE_BASE_URL", label: "DashScope", placeholder: "https://dashscope.aliyuncs.com" },
   { key: "KLING_BASE_URL", label: "Kling", placeholder: "https://api-beijing.klingai.com/v1" },
   { key: "VIDU_BASE_URL", label: "Vidu", placeholder: "https://api.vidu.cn/ent/v2" },
+  { key: "OPENAI_BASE_URL", label: "OpenAI-compatible", placeholder: "https://api.openai.com/v1" },
+  { key: "ARK_BASE_URL", label: "Volcano Ark", placeholder: "https://ark.cn-beijing.volces.com/api/v3" },
+  { key: "PIXVERSE_BASE_URL", label: "PixVerse", placeholder: "https://api.pixverse.ai" },
 ];
 
 const DEFAULT_CONFIG: EnvConfig = {
   DASHSCOPE_API_KEY: "",
+  DASHSCOPE_COMPATIBLE_BASE_URL: "",
+  LLM_PROVIDER: "",
+  OPENAI_API_KEY: "",
+  OPENAI_MODEL: "",
   ALIBABA_CLOUD_ACCESS_KEY_ID: "",
   ALIBABA_CLOUD_ACCESS_KEY_SECRET: "",
   OSS_BUCKET_NAME: "",
@@ -45,6 +58,8 @@ const DEFAULT_CONFIG: EnvConfig = {
   KLING_ACCESS_KEY: "",
   KLING_SECRET_KEY: "",
   VIDU_API_KEY: "",
+  ARK_API_KEY: "",
+  PIXVERSE_API_KEY: "",
   endpoint_overrides: {},
 };
 
@@ -56,6 +71,11 @@ function normalizeProviderMode(mode?: string): ProviderMode {
 function validateRequiredFields(config: EnvConfig): boolean {
   const dashscopeKey = config.DASHSCOPE_API_KEY?.trim();
   if (!dashscopeKey) return false;
+
+  if (config.LLM_PROVIDER?.trim().toLowerCase() === "openai") {
+    const openaiKey = config.OPENAI_API_KEY?.trim();
+    if (!openaiKey) return false;
+  }
 
   if (config.KLING_PROVIDER_MODE === "vendor") {
     const klingAccessKey = config.KLING_ACCESS_KEY?.trim();
@@ -137,10 +157,10 @@ describe("ENDPOINT_PROVIDERS registry", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });
 
-  it("contains exactly DashScope, Kling, Vidu", () => {
-    expect(ENDPOINT_PROVIDERS).toHaveLength(3);
+  it("contains configurable model-provider endpoints", () => {
+    expect(ENDPOINT_PROVIDERS).toHaveLength(6);
     const labels = ENDPOINT_PROVIDERS.map((p) => p.label);
-    expect(labels).toEqual(expect.arrayContaining(["DashScope", "Kling", "Vidu"]));
+    expect(labels).toEqual(expect.arrayContaining(["DashScope", "Kling", "Vidu", "OpenAI-compatible", "Volcano Ark", "PixVerse"]));
   });
 });
 
@@ -196,6 +216,22 @@ describe("validateRequiredFields", () => {
     const valid = {
       ...invalid,
       VIDU_API_KEY: "vidu-key",
+    };
+    expect(validateRequiredFields(valid)).toBe(true);
+  });
+
+  it("requires OpenAI-compatible key when LLM_PROVIDER=openai", () => {
+    const invalid = {
+      ...DEFAULT_CONFIG,
+      DASHSCOPE_API_KEY: "sk-test",
+      LLM_PROVIDER: "openai",
+      OPENAI_API_KEY: "",
+    };
+    expect(validateRequiredFields(invalid)).toBe(false);
+
+    const valid = {
+      ...invalid,
+      OPENAI_API_KEY: "openai-key",
     };
     expect(validateRequiredFields(valid)).toBe(true);
   });

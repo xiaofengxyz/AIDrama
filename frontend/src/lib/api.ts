@@ -48,6 +48,10 @@ export type ProviderMode = "dashscope" | "vendor";
 
 export interface EnvConfigPayload {
     DASHSCOPE_API_KEY?: string;
+    DASHSCOPE_COMPATIBLE_BASE_URL?: string;
+    LLM_PROVIDER?: string;
+    OPENAI_API_KEY?: string;
+    OPENAI_MODEL?: string;
     ALIBABA_CLOUD_ACCESS_KEY_ID?: string;
     ALIBABA_CLOUD_ACCESS_KEY_SECRET?: string;
     OSS_BUCKET_NAME?: string;
@@ -59,6 +63,8 @@ export interface EnvConfigPayload {
     KLING_ACCESS_KEY?: string;
     KLING_SECRET_KEY?: string;
     VIDU_API_KEY?: string;
+    ARK_API_KEY?: string;
+    PIXVERSE_API_KEY?: string;
     endpoint_overrides?: Record<string, string>;
     [key: string]: string | Record<string, string> | undefined;
 }
@@ -121,6 +127,34 @@ export interface FilmPipelineRunResponse {
         qa_summary?: Record<string, unknown>;
         metadata?: Record<string, unknown>;
     };
+    metadata?: Record<string, any>;
+}
+
+export interface AutoDramaRunPayload {
+    seed_text: string;
+    title?: string;
+    target_chapters?: number;
+    backend?: "dry_run" | "dashscope" | "kling" | "seedance" | "veo";
+    max_attempts?: number;
+    min_score?: number;
+    persist_project?: boolean;
+    auto_overrides?: Record<string, boolean>;
+}
+
+export interface AutoDramaRunResponse {
+    status: "completed" | "waiting_for_user" | string;
+    waiting_for_stage?: string | null;
+    title: string;
+    novel_plan?: Record<string, any> | null;
+    screenplay_text?: string;
+    prompt_execution_plan?: Record<string, any>;
+    project?: any;
+    next_hash?: string | null;
+    story_graph?: FilmPipelineRunResponse["story_graph"] | null;
+    director_program?: FilmPipelineRunResponse["director_program"] | null;
+    film_run?: FilmPipelineRunResponse["film_run"];
+    generation_ledger?: FilmPipelineRunResponse["generation_ledger"] | null;
+    final_edit?: FilmPipelineRunResponse["final_edit"] | null;
     metadata?: Record<string, any>;
 }
 
@@ -283,6 +317,11 @@ export const api = {
 
     runFilmPipeline: async (payload: FilmPipelineRunPayload): Promise<FilmPipelineRunResponse> => {
         const res = await axios.post(`${API_URL}/film/pipeline/run`, payload);
+        return res.data;
+    },
+
+    runAutoDrama: async (payload: AutoDramaRunPayload): Promise<AutoDramaRunResponse> => {
+        const res = await axios.post(`${API_URL}/film/auto-drama/run`, payload);
         return res.data;
     },
 

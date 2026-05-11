@@ -105,6 +105,15 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-039 | Start Render 缺视频兜底 | 项目没有 selected video 时点击 `Start Render` | 返回 `mode=render_package`、可下载 JSON、warnings 和 action_required，不再泛化失败 |
 | TC-040 | Start Render 错误信息 | 后端返回 400 detail | 前端展示具体 detail，而不是固定 `Failed to export project` |
 | TC-041 | 工作流 UI 可视化 | 进入第 9 步 QA & Export | 页面显示 CineForge Workflow 阶段、进度、阻塞项与模型建议 |
+| TC-042 | 模型适配配置层 | config/env 同时提供 `api_key`、`base_url` | 适配器优先使用显式 config，再使用 `{PROVIDER}_API_KEY` / `{PROVIDER}_BASE_URL` |
+| TC-043 | 密钥诊断安全 | 输出 endpoint summary | 只显示 base url、来源和是否已配置，不泄露真实 API Key |
+| TC-044 | Workflow Prompt 开关 | 读取 `docs/Codex_Workflow_Prompts` | 只加载 00-09 数字模块，全部带 `workflow_switch` |
+| TC-045 | 自动执行开关 | 所有模块 `auto_advance=true` | execution plan 为 `ready`，不会等待人工 |
+| TC-046 | 人工停顿开关 | 某模块 `auto_advance=false` / `requires_human_review=true` | 该模块完成后返回 `waiting_for_user` 和 `first_waiting_stage` |
+| TC-047 | Novel Engine | 输入一句故事梗概 | 生成 world bible、relationship graph、章节大纲和 cliffhanger |
+| TC-048 | Auto Drama dry-run | `POST /film/auto-drama/run` | 返回 novel plan、screenplay、Story Graph、Director Program、QA、Ledger、Final Edit |
+| TC-049 | Auto Drama 写入 Studio | `persist_project=true` | 创建可编辑草稿项目、分镜 frames，并返回 `#/project/{id}/step/export` |
+| TC-050 | Auto Drama 人工门控 | 请求 `auto_overrides={"02_stage1_novel_engine": false}` | 停在 Novel Engine 后，保留 novel plan，不继续 Final Edit |
 
 ## 本次九阶段可视化新增自动化测试
 
@@ -118,6 +127,9 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | `tests/test_series_production_blueprint.py` | D7 样片和 5 集系列蓝图加载、编译、批量 dry-run、重复集号拒绝、首页模板 catalog loader |
 | `tests/test_film_workflow.py` | 工作流状态评估、视频就绪判断、edit history 保留、render package manifest、百炼优先模型目录 |
 | `frontend/src/__tests__/workflow-api.test.ts` | `exportProject` 支持 render package 响应、后端 detail 透传、workflow state 加载 |
+| `tests/test_model_runtime_config.py` | 统一模型配置层优先级、base url 解析、密钥不泄露 |
+| `tests/test_workflow_prompt_switches.py` | 00-09 prompt 开关解析、自动执行计划、人工停顿计划 |
+| `tests/test_auto_drama_pipeline.py` | Novel Engine、文字到 dry-run 漫剧包、人工门控停顿 |
 
 新增验收命令：
 
@@ -128,4 +140,5 @@ cd frontend && npx tsc --noEmit --pretty false
 python3 -m pytest tests/test_film_pipeline_api.py tests/test_film_production_pipeline.py -q -s
 python3 -m pytest tests/test_series_production_blueprint.py -q -s
 python3 -m pytest tests/test_film_workflow.py -q -s
+python3 -m pytest tests/test_model_runtime_config.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py -q -s
 ```

@@ -14,6 +14,41 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-12 模型适配隔离、Workflow 自动开关与文字到漫剧 Auto Drama
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 规范与现状复核 | 已完成 | 读取 AGENTS、`docs/Codex_Workflow_Prompts`、现有 Film Core、模型适配器和配置接口；确认顶层 `standards/` 目录不存在 | `rg --files`、读取 `workflow.py`、`api.py`、`src/models/*` |
+| 2. 模型适配配置层 | 已完成 | 新增 `src/models/runtime_config.py`，让 DashScope、Kling、Vidu、Ark/Seedance、LLM Adapter 通过统一层解析 `api_key` / `base_url` / `baseurl` | `tests/test_model_runtime_config.py`、`compileall` |
+| 3. Workflow Prompt 开关 | 已完成 | 为 00-09 prompt 文件增加 `workflow_switch`，新增 parser、execution plan 和 `/film/workflow/prompts` API | `tests/test_workflow_prompt_switches.py` |
+| 4. 文字到小说到漫剧 | 已完成 | 新增 `NovelEngine`、`AutoDramaPipeline` 和 `/film/auto-drama/run`，支持自动完整 dry-run 或在非自动阶段停下 | `tests/test_auto_drama_pipeline.py`、API 测试 |
+| 5. 测试与文档 | 已完成 | 更新测试用例文档、用户操作手册、前端 API 类型和环境配置页面字段 | pytest、tsc、vitest、Docker 复测 |
+| 6. 清理提交推送 | 待执行 | 最终冲突检查、全量验证、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
+
+本轮阶段性结论：
+
+- 各模型调用已通过统一适配配置层隔离：适配器优先读取显式 config，其次读取 `{PROVIDER}_API_KEY` / `{PROVIDER}_BASE_URL`，最后使用内置默认 base url。
+- `docs/Codex_Workflow_Prompts` 00-09 每个模块都已有 `workflow_switch`。默认全自动；当 `auto_advance=false` 或 `requires_human_review=true` 时，执行计划会在该模块完成后返回 `waiting_for_user`。
+- 新增 Auto Drama dry-run：输入一段文字后生成 `novel_plan`、`screenplay_text`、Story Graph、Director Program、QA/Ledger/Final Edit，并可自动写入 Studio 草稿项目。
+- 当前实现不新增强制页面 UI 流程；已有 Settings/环境配置页面补充了可选模型 Key 和 endpoint 字段，主要一键链路通过 API 暴露，避免引入新的 UI 风险。
+- Docker 后端镜像已复制 `docs/Codex_Workflow_Prompts/`，容器内 `/film/workflow/prompts` 与 `/film/auto-drama/run` 可直接读取 prompt 开关，不再依赖宿主挂载。
+
+本轮阶段性验证记录：
+
+- `python3 -m compileall -q src/film_engine src/models src/apps/comic_gen`：通过。
+- `python3 -m pytest tests/test_model_runtime_config.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py tests/test_film_workflow.py tests/test_film_pipeline_api.py -q -s`：宿主通过 13 passed，12 skipped（宿主 API app 受 DashScope SDK 可用性影响，保留容器复测）。
+- `python3 -m pytest tests/test_model_runtime_config.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py tests/test_film_workflow.py tests/test_film_production_pipeline.py tests/test_series_production_blueprint.py -q -s`：通过，24 passed。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `cd frontend && npm run test`：通过，10 个测试文件，117 个测试。
+- `cd frontend && npm run test:ui`：通过，3 个测试文件，49 个测试；错误态用例保留预期 stderr。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建并启动。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl http://localhost:17177/film/workflow/prompts`：HTTP 200，返回 10 个 prompt 模块、`workflow_prompt_switch.v1` 和全自动 execution plan。
+- `curl -X POST http://localhost:17177/film/auto-drama/run ...`：HTTP 200，返回 `novel_plan`、`screenplay_text`、Film Core dry-run、`final_edit`。
+- `curl http://localhost:17177/config/env`：HTTP 200，返回 DashScope/OpenAI/Ark/PixVerse/Vidu/Kling 配置字段和 endpoint overrides。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests/test_model_runtime_config.py /app/tests/test_workflow_prompt_switches.py /app/tests/test_auto_drama_pipeline.py /app/tests/test_film_workflow.py /app/tests/test_film_pipeline_api.py`：通过，25 passed。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，165 passed，76 warnings。
+
 ### 2026-05-12 CineForge 工作流、模型建议与 QA Export 导出兜底
 
 | 阶段 | 状态 | 本轮动作 | 验收方式 |

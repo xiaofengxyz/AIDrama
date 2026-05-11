@@ -163,6 +163,63 @@ def test_runtime_recommendations_api_is_bailian_first():
     assert stages["voice_runtime"]["model_recommendations"][0]["model"] == "cosyvoice-v3-flash"
 
 
+def test_workflow_prompt_switch_api_exposes_auto_execution_plan():
+    """Codex workflow prompts should expose auto/manual gates to the backend."""
+    client = TestClient(app)
+
+    response = client.get("/film/workflow/prompts")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ready"
+    assert data["execution_plan"]["status"] == "ready"
+    assert data["execution_plan"]["summary"]["module_count"] == 10
+    assert data["modules"][1]["switch"]["module_id"] == "01_workflow_architecture"
+
+
+def test_auto_drama_api_generates_novel_and_studio_project(isolated_client):
+    """Text-only input should produce a novel plan, dry-run film package and draft project."""
+    response = isolated_client.post(
+        "/film/auto-drama/run",
+        json={
+            "title": "Auto Night Signal",
+            "seed_text": "Maya: The dead customer's phone rings again. The courier follows the sound.",
+            "target_chapters": 2,
+            "persist_project": True,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed"
+    assert len(data["novel_plan"]["chapters"]) == 2
+    assert data["film_run"]["summary"]["accepted_shots"] >= 1
+    assert data["final_edit"]["clips"]
+    assert data["project"]["title"] == "Auto Night Signal"
+    assert data["next_hash"].endswith("/step/export")
+
+
+def test_auto_drama_api_respects_manual_prompt_gate(isolated_client):
+    """A non-auto stage should return waiting_for_user after completing that stage."""
+    response = isolated_client.post(
+        "/film/auto-drama/run",
+        json={
+            "title": "Manual Auto Drama",
+            "seed_text": "Maya: The phone rings.",
+            "target_chapters": 2,
+            "persist_project": False,
+            "auto_overrides": {"02_stage1_novel_engine": False},
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "waiting_for_user"
+    assert data["waiting_for_stage"] == "stage1_novel_engine"
+    assert data["novel_plan"]["chapters"]
+    assert data["final_edit"] is None
+
+
 def test_pilot_template_api_instantiates_draft_project(isolated_client):
     """A pilot template can be copied into an editable standalone draft project."""
     response = isolated_client.post(

@@ -14,7 +14,6 @@ import jwt
 import requests
 
 from .base import VideoGenModel
-from ..utils.endpoints import get_provider_base_url
 from ..utils.oss_utils import OSSImageUploader
 from ..utils.provider_media import resolve_media_input
 
@@ -24,15 +23,36 @@ logger = logging.getLogger(__name__)
 class KlingModel(VideoGenModel):
     def __init__(self, config: Dict[str, Any]):
         super().__init__(config)
-        self.access_key = config.get("access_key") or os.getenv("KLING_ACCESS_KEY", "")
-        self.secret_key = config.get("secret_key") or os.getenv("KLING_SECRET_KEY", "")
-        self.model_name = config.get("params", {}).get("model_name", "kling-v3")
+        self._access_key_override = self.config.get("access_key") or ""
+        self._secret_key_override = self.config.get("secret_key") or ""
+        self.model_name = self.config.get("params", {}).get("model_name", "kling-v3")
         self._cached_token = None
         self._token_exp = 0
+        self._token_signature = ""
+
+    @property
+    def access_key(self) -> str:
+        """Resolve the current Kling access key from config override or env."""
+        return self._access_key_override or os.getenv("KLING_ACCESS_KEY", "")
+
+    @property
+    def secret_key(self) -> str:
+        """Resolve the current Kling secret key from config override or env."""
+        return self._secret_key_override or os.getenv("KLING_SECRET_KEY", "")
+
+    @property
+    def base_url(self) -> str:
+        """Return the configured Kling base URL through the runtime adapter layer."""
+        return self.resolve_endpoint("KLING").base_url
 
     def _get_token(self) -> str:
         """Generate a signed JWT token, cached until near expiry."""
         now = int(time.time())
+        signature = f"{self.access_key}:{self.secret_key}"
+        if signature != self._token_signature:
+            self._cached_token = None
+            self._token_exp = 0
+            self._token_signature = signature
         # Reuse cached token if still valid (with 60s buffer)
         if self._cached_token and now < self._token_exp - 60:
             return self._cached_token
@@ -98,7 +118,7 @@ class KlingModel(VideoGenModel):
         start_time = time.time()
 
         is_i2v = bool(img_url or img_path)
-        base_url = get_provider_base_url("KLING")
+        base_url = self.base_url
 
         if is_i2v:
             # Image-to-Video

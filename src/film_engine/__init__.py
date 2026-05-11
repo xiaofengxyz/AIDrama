@@ -6,6 +6,7 @@ Studio OS surfaces, queues, real video runtimes, and visual QA systems.
 """
 
 from .batch import BatchProductionRunner
+from .auto_drama import AutoDramaPipeline, AutoDramaRun
 from .director_dsl import DirectorDSLParser
 from .director_planner import DirectorPlanner
 from .final_editing import FinalEditingAssembler
@@ -50,6 +51,7 @@ from .models import (
     StoryGraphEdge,
 )
 from .orchestrator import FilmEngine
+from .novel import NovelChapter, NovelEngine, NovelPlan, NovelRelationship
 from .pipeline import FilmProductionPipeline
 from .prompt_compiler import PromptCompiler
 from .qa import QAEngine
@@ -72,9 +74,20 @@ from .workflow import (
     get_model_recommendation_catalog,
     get_workflow_stage_definitions,
 )
+from .workflow_prompts import (
+    WorkflowPromptExecutionPlan,
+    WorkflowPromptExecutionStep,
+    WorkflowPromptModule,
+    WorkflowPromptSwitch,
+    build_prompt_execution_plan,
+    load_workflow_prompt_modules,
+    parse_workflow_prompt_module,
+)
 
 __all__ = [
     "BatchProductionItem",
+    "AutoDramaPipeline",
+    "AutoDramaRun",
     "BatchProductionPlan",
     "BatchProductionRun",
     "BatchProductionRunner",
@@ -103,6 +116,10 @@ __all__ = [
     "GenerationAttempt",
     "GenerationLedger",
     "GenerationLedgerRecorder",
+    "NovelChapter",
+    "NovelEngine",
+    "NovelPlan",
+    "NovelRelationship",
     "PilotSamplePack",
     "PilotSampleTemplate",
     "PromptCompileRequest",
@@ -134,11 +151,18 @@ __all__ = [
     "StoryGraphBuilder",
     "StoryGraphEdge",
     "WorkflowEditEvent",
+    "WorkflowPromptExecutionPlan",
+    "WorkflowPromptExecutionStep",
+    "WorkflowPromptModule",
+    "WorkflowPromptSwitch",
     "WorkflowStageDefinition",
     "WorkflowStageState",
     "WorkflowState",
     "WorkflowStateStore",
     "evaluate_project_workflow",
+    "build_prompt_execution_plan",
     "get_model_recommendation_catalog",
     "get_workflow_stage_definitions",
+    "load_workflow_prompt_modules",
+    "parse_workflow_prompt_module",
 ]

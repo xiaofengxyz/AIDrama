@@ -8,6 +8,10 @@ import { Image, Video, Layout, Check, User, Building, Box } from "lucide-react";
 
 type EnvConfig = EnvConfigPayload & {
   DASHSCOPE_API_KEY: string;
+  DASHSCOPE_COMPATIBLE_BASE_URL: string;
+  LLM_PROVIDER: string;
+  OPENAI_API_KEY: string;
+  OPENAI_MODEL: string;
   ALIBABA_CLOUD_ACCESS_KEY_ID: string;
   ALIBABA_CLOUD_ACCESS_KEY_SECRET: string;
   OSS_BUCKET_NAME: string;
@@ -19,6 +23,8 @@ type EnvConfig = EnvConfigPayload & {
   KLING_ACCESS_KEY: string;
   KLING_SECRET_KEY: string;
   VIDU_API_KEY: string;
+  ARK_API_KEY: string;
+  PIXVERSE_API_KEY: string;
   endpoint_overrides: Record<string, string>;
 };
 
@@ -26,10 +32,17 @@ const ENDPOINT_PROVIDERS = [
   { key: "DASHSCOPE_BASE_URL", label: "DashScope", placeholder: "https://dashscope.aliyuncs.com" },
   { key: "KLING_BASE_URL", label: "Kling", placeholder: "https://api-beijing.klingai.com/v1" },
   { key: "VIDU_BASE_URL", label: "Vidu", placeholder: "https://api.vidu.cn/ent/v2" },
+  { key: "OPENAI_BASE_URL", label: "OpenAI-compatible", placeholder: "https://api.openai.com/v1" },
+  { key: "ARK_BASE_URL", label: "Volcano Ark", placeholder: "https://ark.cn-beijing.volces.com/api/v3" },
+  { key: "PIXVERSE_BASE_URL", label: "PixVerse", placeholder: "https://api.pixverse.ai" },
 ];
 
 const DEFAULT_CONFIG: EnvConfig = {
   DASHSCOPE_API_KEY: "",
+  DASHSCOPE_COMPATIBLE_BASE_URL: "",
+  LLM_PROVIDER: "",
+  OPENAI_API_KEY: "",
+  OPENAI_MODEL: "",
   ALIBABA_CLOUD_ACCESS_KEY_ID: "",
   ALIBABA_CLOUD_ACCESS_KEY_SECRET: "",
   OSS_BUCKET_NAME: "",
@@ -41,6 +54,8 @@ const DEFAULT_CONFIG: EnvConfig = {
   KLING_ACCESS_KEY: "",
   KLING_SECRET_KEY: "",
   VIDU_API_KEY: "",
+  ARK_API_KEY: "",
+  PIXVERSE_API_KEY: "",
   endpoint_overrides: {},
 };
 
@@ -60,6 +75,9 @@ const getValidationErrors = (env: EnvConfig): string[] => {
 
   if (!env.DASHSCOPE_API_KEY?.trim()) {
     errors.push("DashScope API Key");
+  }
+  if (env.LLM_PROVIDER?.trim().toLowerCase() === "openai" && !env.OPENAI_API_KEY?.trim()) {
+    errors.push("OpenAI-compatible API Key");
   }
   if (env.KLING_PROVIDER_MODE === "vendor") {
     if (!env.KLING_ACCESS_KEY?.trim()) {
@@ -225,6 +243,38 @@ export default function SettingsPage() {
                 <span className="text-gray-600 font-normal text-xs">e.g. sk-xxx</span>
               </label>
               <input type="password" value={config.DASHSCOPE_API_KEY} onChange={(e) => handleChange("DASHSCOPE_API_KEY", e.target.value)} placeholder="Required for DashScope-first model routing" className={inputClass} />
+            </div>
+
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">
+              <p className="text-xs text-gray-400">Model calls are isolated by provider adapters. Configure only the optional runtimes you need.</p>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">LLM Provider</label>
+                  <input type="text" value={config.LLM_PROVIDER} onChange={(e) => handleChange("LLM_PROVIDER", e.target.value)} placeholder="dashscope or openai" className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">OpenAI-compatible Model</label>
+                  <input type="text" value={config.OPENAI_MODEL} onChange={(e) => handleChange("OPENAI_MODEL", e.target.value)} placeholder="gpt-4o, deepseek-chat, local model..." className={inputClass} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">OpenAI-compatible API Key</label>
+                <input type="password" value={config.OPENAI_API_KEY} onChange={(e) => handleChange("OPENAI_API_KEY", e.target.value)} placeholder="Optional, used when LLM_PROVIDER=openai" className={inputClass} />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Ark / Seedance API Key</label>
+                  <input type="password" value={config.ARK_API_KEY} onChange={(e) => handleChange("ARK_API_KEY", e.target.value)} placeholder="Optional for Volcano Ark runtimes" className={inputClass} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">PixVerse API Key</label>
+                  <input type="password" value={config.PIXVERSE_API_KEY} onChange={(e) => handleChange("PIXVERSE_API_KEY", e.target.value)} placeholder="Optional for future PixVerse adapter" className={inputClass} />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">DashScope Compatible Base URL</label>
+                <input type="text" value={config.DASHSCOPE_COMPATIBLE_BASE_URL} onChange={(e) => handleChange("DASHSCOPE_COMPATIBLE_BASE_URL", e.target.value)} placeholder="Optional, e.g. https://dashscope.aliyuncs.com/compatible-mode/v1" className={inputClass} />
+              </div>
             </div>
 
             <div className="bg-white/5 border border-white/10 rounded-lg p-4 space-y-4">

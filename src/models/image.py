@@ -9,11 +9,12 @@ from http import HTTPStatus
 import dashscope
 from dashscope import ImageSynthesis
 from ..utils import get_logger
-from ..utils.endpoints import get_provider_base_url
+from ..utils.endpoints import get_provider_base_url  # Backward-compatible test hook.
 from ..utils.media_refs import MEDIA_REF_UNKNOWN, classify_media_ref
 from ..utils.oss_utils import OSSImageUploader
 from ..utils.provider_media import resolve_media_input
 from ..utils.provider_registry import resolve_provider_backend
+from .runtime_config import ModelRuntimeEndpoint, resolve_model_runtime_endpoint
 
 logger = get_logger(__name__)
 
@@ -21,7 +22,11 @@ class ImageGenModel(ABC):
     """Abstract base class for image generation models."""
 
     def __init__(self, config: Dict[str, Any]):
-        self.config = config
+        self.config = config or {}
+
+    def resolve_endpoint(self, provider: str, **kwargs: Any) -> ModelRuntimeEndpoint:
+        """Resolve provider base URL and credentials through the shared adapter layer."""
+        return resolve_model_runtime_endpoint(self.config, provider, **kwargs)
 
     @abstractmethod
     def generate(self, prompt: str, output_path: str, **kwargs) -> Tuple[str, float]:
@@ -43,14 +48,19 @@ class ImageGenModel(ABC):
 class WanxImageModel(ImageGenModel):
     def __init__(self, config):
         super().__init__(config)
-        self.params = config.get('params', {})
+        self.params = self.config.get('params', {})
 
     @property
     def api_key(self):
-        api_key = os.getenv("DASHSCOPE_API_KEY")
+        api_key = self.resolve_endpoint("DASHSCOPE").api_key
         if not api_key:
             logger.warning("Dashscope API Key not found in config or environment variables.")
         return api_key
+
+    @property
+    def base_url(self) -> str:
+        """Return the configured DashScope base URL through the runtime adapter layer."""
+        return self.resolve_endpoint("DASHSCOPE").base_url
 
     def generate(self, prompt: str, output_path: str, ref_image_path: str = None, ref_image_paths: list = None, model_name: str = None, **kwargs) -> Tuple[str, float]:
         # Determine model based on whether reference image is provided
@@ -127,7 +137,7 @@ class WanxImageModel(ImageGenModel):
 
     def _generate_wan26_http(self, prompt: str, size: str, n: int, negative_prompt: str = None) -> str:
         """Generate image using Wan 2.6 T2I via HTTP API (synchronous)."""
-        base = get_provider_base_url("DASHSCOPE")
+        base = self.base_url
         url = f"{base}/api/v1/services/aigc/multimodal-generation/generation"
 
         headers = {
@@ -196,7 +206,7 @@ class WanxImageModel(ImageGenModel):
 
     def _generate_wan26_image_http(self, prompt: str, size: str, n: int, negative_prompt: str = None, ref_image_paths: list = None) -> str:
         """Generate image using Wan 2.6 Image via HTTP API (asynchronous with polling)."""
-        base = get_provider_base_url("DASHSCOPE")
+        base = self.base_url
         create_url = f"{base}/api/v1/services/aigc/image-generation/generation"
 
         headers = {

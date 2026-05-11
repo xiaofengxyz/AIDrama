@@ -5,6 +5,9 @@ PROVIDER_DEFAULTS = {
     "DASHSCOPE": "https://dashscope.aliyuncs.com",
     "KLING": "https://api-beijing.klingai.com/v1",
     "VIDU": "https://api.vidu.cn/ent/v2",
+    "OPENAI": "https://api.openai.com/v1",
+    "ARK": "https://ark.cn-beijing.volces.com/api/v3",
+    "PIXVERSE": "",
 }
 
 
