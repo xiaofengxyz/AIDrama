@@ -711,8 +711,8 @@ CRITICAL STYLE GUIDELINES:
         logger.info(f"Analyzing text to storyboard: {text[:100]}...")
 
         if not self.is_configured:
-            logger.warning("DASHSCOPE_API_KEY not set. Returning mock frames.")
-            return self._mock_storyboard_frames(text)
+            logger.warning("DASHSCOPE_API_KEY not set. Returning deterministic storyboard frames.")
+            return self._fallback_storyboard_frames(text, entities_json, "llm_not_configured")
 
         # Build entities context
         characters_list = entities_json.get("characters", [])
@@ -827,49 +827,176 @@ Props:
             if frames is not None:
                 return frames
 
-            raise RuntimeError(
-                "AI 模型输出的 JSON 格式不合规，自动重试后仍然失败。请重新点击生成按钮再试一次。"
-            )
+            logger.warning("Storyboard JSON parse failed after retry; using deterministic fallback frames.")
+            return self._fallback_storyboard_frames(text, entities_json, "json_parse_failed")
 
-        except RuntimeError:
-            raise  # Re-raise our own descriptive errors
         except Exception as e:
             logger.error(f"Error in storyboard analysis: {e}", exc_info=True)
-            raise RuntimeError(f"分镜分析过程出错: {str(e)}")
+            return self._fallback_storyboard_frames(text, entities_json, f"llm_error:{type(e).__name__}")
 
     def _parse_storyboard_json(self, content: str):
         """Try to parse storyboard JSON from LLM output. Returns frames list or None on failure."""
-        content = _strip_markdown_json(content)
+        for candidate in self._storyboard_json_candidates(content):
+            try:
+                result = json.loads(candidate)
+                frames = result if isinstance(result, list) else result.get("frames", [])
+                normalized = self._normalize_storyboard_frames(frames)
+                if normalized:
+                    logger.info(f"Storyboard Analysis generated {len(normalized)} frames")
+                    return normalized
+                logger.warning("Parsed storyboard JSON but no usable frames were found")
+            except (AttributeError, TypeError, json.JSONDecodeError) as e:
+                logger.debug(f"Storyboard JSON candidate failed to parse: {e}")
+        logger.error("Failed to parse storyboard analysis JSON from all candidates")
+        return None
 
-        try:
-            result = json.loads(content.strip())
-            frames = result.get("frames", [])
-            if not frames:
-                logger.warning("Parsed JSON successfully but 'frames' array is empty")
-                return None
-            logger.info(f"Storyboard Analysis generated {len(frames)} frames")
-            return frames
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse storyboard analysis JSON: {e}")
-            return None
+    def _storyboard_json_candidates(self, content: str) -> List[str]:
+        """Return likely JSON substrings from messy model output."""
+        stripped = _strip_markdown_json(content or "").strip()
+        if not stripped:
+            return []
+
+        candidates = [stripped]
+        # Some models wrap JSON in prose. Keep both object and array extractions.
+        for opening, closing in (("{", "}"), ("[", "]")):
+            start = stripped.find(opening)
+            end = stripped.rfind(closing)
+            if start != -1 and end != -1 and end > start:
+                candidates.append(stripped[start:end + 1])
+
+        repaired = []
+        for candidate in candidates:
+            repaired.append(candidate)
+            repaired.append(self._repair_json_candidate(candidate))
+
+        # Preserve order while dropping duplicates and empty strings.
+        seen = set()
+        unique = []
+        for candidate in repaired:
+            if candidate and candidate not in seen:
+                seen.add(candidate)
+                unique.append(candidate)
+        return unique
+
+    def _repair_json_candidate(self, candidate: str) -> str:
+        """Repair common LLM JSON glitches without guessing semantic content."""
+        repaired = re.sub(r",\s*([}\]])", r"\1", candidate.strip())
+        if not repaired:
+            return repaired
+
+        open_braces = repaired.count("{") - repaired.count("}")
+        open_brackets = repaired.count("[") - repaired.count("]")
+        if repaired.count('"') % 2:
+            repaired += '"'
+        if open_brackets > 0:
+            repaired += "]" * open_brackets
+        if open_braces > 0:
+            repaired += "}" * open_braces
+        return repaired
+
+    def _normalize_storyboard_frames(self, frames: Any) -> List[Dict[str, Any]]:
+        """Normalize frame records so downstream code can safely persist them."""
+        if not isinstance(frames, list):
+            return []
+
+        normalized = []
+        for frame in frames:
+            if not isinstance(frame, dict):
+                continue
+
+            action_description = str(frame.get("action_description") or "").strip()
+            if not action_description:
+                action_parts = [
+                    str(frame.get("character_acting") or "").strip(),
+                    str(frame.get("key_action_physics") or "").strip(),
+                ]
+                action_description = "。".join(part for part in action_parts if part)
+            if not action_description:
+                action_description = str(frame.get("visual_atmosphere") or frame.get("dialogue") or "").strip()
+            if not action_description:
+                continue
+
+            clean_frame = dict(frame)
+            clean_frame["action_description"] = action_description
+            for key in ("character_ref_names", "prop_ref_names"):
+                value = clean_frame.get(key, [])
+                if isinstance(value, str):
+                    clean_frame[key] = [value] if value.strip() else []
+                elif not isinstance(value, list):
+                    clean_frame[key] = []
+                else:
+                    clean_frame[key] = [str(item).strip() for item in value if str(item).strip()]
+            clean_frame["scene_ref_name"] = str(clean_frame.get("scene_ref_name") or "默认场景").strip()
+            normalized.append(clean_frame)
+
+        return normalized
 
     def _mock_storyboard_frames(self, text: str) -> List[Dict[str, Any]]:
         """Returns mock storyboard frames for testing when API is unavailable."""
-        return [
-            {
-                "scene_ref_name": "卧室",
-                "character_ref_names": ["叶墨"],
-                "prop_ref_names": ["手机"],
-                "visual_atmosphere": "昏暗的卧室，窗外透进冷色调月光",
-                "character_acting": "叶墨眉头紧锁，眼神迷离",
-                "key_action_physics": "手机在柜上剧烈震动",
-                "shot_size": "中景",
-                "camera_angle": "平视",
-                "camera_movement": "Static",
-                "dialogue": None,
-                "speaker": None
-            }
-        ]
+        return self._fallback_storyboard_frames(text, {}, "legacy_mock")
+
+    def _fallback_storyboard_frames(
+        self,
+        text: str,
+        entities_json: Dict[str, Any],
+        reason: str,
+    ) -> List[Dict[str, Any]]:
+        """Build editable storyboard frames when the model cannot return valid JSON."""
+        characters = entities_json.get("characters", []) if entities_json else []
+        scenes = entities_json.get("scenes", []) if entities_json else []
+        props = entities_json.get("props", []) if entities_json else []
+        default_scene = (scenes[0].get("name") if scenes else "默认场景") or "默认场景"
+
+        raw_units = []
+        for line in (text or "").splitlines():
+            cleaned = re.sub(r"\[[^\]]+\]", "", line).strip(" △\t")
+            if cleaned:
+                raw_units.append(cleaned)
+        if not raw_units:
+            raw_units = [part.strip() for part in re.split(r"[。！？!?]\s*", text or "") if part.strip()]
+        if not raw_units:
+            raw_units = ["角色进入画面，观察周围环境"]
+
+        frames = []
+        shot_sizes = ["中景", "近景", "特写", "全景"]
+        for index, unit in enumerate(raw_units[:8]):
+            visible_characters = [
+                item.get("name")
+                for item in characters
+                if item.get("name") and item.get("name") in unit
+            ][:3]
+            if not visible_characters and characters:
+                visible_characters = [characters[0].get("name")]
+
+            visible_props = [
+                item.get("name")
+                for item in props
+                if item.get("name") and item.get("name") in unit
+            ][:3]
+
+            scene_name = default_scene
+            for scene in scenes:
+                if scene.get("name") and scene.get("name") in unit:
+                    scene_name = scene.get("name")
+                    break
+
+            frames.append(
+                {
+                    "scene_ref_name": scene_name,
+                    "character_ref_names": [name for name in visible_characters if name],
+                    "prop_ref_names": [name for name in visible_props if name],
+                    "visual_atmosphere": f"{scene_name}，电影级写实光影，连续镜头语境",
+                    "action_description": unit[:240],
+                    "shot_size": shot_sizes[index % len(shot_sizes)],
+                    "camera_angle": "平视",
+                    "camera_movement": "静止" if index % 2 == 0 else "缓慢推镜",
+                    "dialogue": None,
+                    "speaker": None,
+                    "fallback_reason": reason,
+                }
+            )
+        logger.info("Generated %s deterministic fallback storyboard frame(s): %s", len(frames), reason)
+        return frames
 
     def polish_storyboard_prompt(self, draft_prompt: str, assets: List[Dict[str, Any]], feedback: str = "", custom_system_prompt: str = "") -> Dict[str, str]:
         """

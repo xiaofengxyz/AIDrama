@@ -28,6 +28,7 @@ from .models import (
     VideoTask,
 )
 from .llm import ScriptProcessor, DEFAULT_STORYBOARD_POLISH_PROMPT, DEFAULT_VIDEO_POLISH_PROMPT, DEFAULT_R2V_POLISH_PROMPT
+from .web_media import WebMediaCollector
 from ...utils.oss_utils import OSSImageUploader, sign_oss_urls_in_data
 from ...utils import setup_logging
 from ...film_engine import (
@@ -124,6 +125,7 @@ pipeline = ComicGenPipeline()
 template_loader = FilmTemplateCatalogLoader(_project_root)
 workflow_store = WorkflowStateStore()
 render_package_exporter = RenderPackageExporter()
+web_media_collector = WebMediaCollector()
 
 @app.get("/debug/config")
 async def debug_config():
@@ -261,10 +263,34 @@ class WorkflowRegenerateRequest(BaseModel):
     dry_run: bool = True
 
 
+class CollectWebMediaRequest(BaseModel):
+    """Collect public web media when a project has no usable images or videos."""
+
+    media_type: str = Field("image", description="image, video, or both")
+    count: int = Field(3, ge=1, le=8)
+    query: Optional[str] = None
+    attach_to: Optional[str] = Field(
+        None,
+        description="Set to storyboard to attach collected images to frames missing images.",
+    )
+
+
 def _persist_project_workflow(script: Script, film_summary: Optional[Dict[str, Any]] = None):
     """Evaluate and persist one project's workflow state for recovery."""
     state = evaluate_project_workflow(script, film_summary=film_summary)
     return workflow_store.upsert(state)
+
+
+def _default_web_media_query(script: Script) -> str:
+    """Build a safe search phrase from project title, script and early frames."""
+    frame_text = " ".join(
+        frame.action_description
+        for frame in script.frames[:3]
+        if frame.action_description
+    )
+    source = " ".join([script.title, frame_text, script.original_text[:240]])
+    source = " ".join(source.split())
+    return source[:120] or "cinematic AI drama storyboard"
 
 
 def _first_reference_image(reference_images: List[str]) -> Optional[str]:
@@ -634,6 +660,48 @@ async def get_project_workflow(script_id: str):
         raise HTTPException(status_code=404, detail="Project not found")
     state = _persist_project_workflow(script)
     return JSONResponse(content=jsonable_encoder(state))
+
+
+@app.post("/projects/{script_id}/web_media/collect")
+async def collect_project_web_media(script_id: str, request: CollectWebMediaRequest):
+    """Collect a few web images/videos for projects that do not yet have media."""
+    script = pipeline.get_script(script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    media_type = request.media_type if request.media_type in {"image", "video", "both"} else "image"
+    query = request.query or _default_web_media_query(script)
+    items = web_media_collector.collect(query=query, media_type=media_type, count=request.count)
+
+    attached_project = None
+    attached_count = 0
+    if request.attach_to == "storyboard":
+        image_items = [item for item in items if item.get("type") == "image"]
+        before = {
+            frame.id
+            for frame in script.frames
+            if frame.rendered_image_url or frame.image_url
+        }
+        attached_project = pipeline.attach_web_images_to_storyboard(script_id, image_items)
+        after = {
+            frame.id
+            for frame in attached_project.frames
+            if frame.rendered_image_url or frame.image_url
+        }
+        attached_count = len(after - before)
+
+    return signed_response(
+        {
+            "status": "ready",
+            "source": "web_media_collector.v1",
+            "query": query,
+            "media_type": media_type,
+            "items": items,
+            "attached_to": request.attach_to,
+            "attached_count": attached_count,
+            "project": attached_project,
+        }
+    )
 
 
 @app.post("/projects/{script_id}/workflow/stages/{stage_id}/regenerate")

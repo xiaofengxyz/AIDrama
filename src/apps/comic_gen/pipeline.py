@@ -8,7 +8,17 @@ import subprocess
 import threading
 import platform
 from urllib.parse import quote
-from .models import Script, GenerationStatus, VideoTask, Character, Scene, StoryboardFrame, Series, PromptConfig
+from .models import (
+    Character,
+    GenerationStatus,
+    PromptConfig,
+    Prop,
+    Scene,
+    Script,
+    Series,
+    StoryboardFrame,
+    VideoTask,
+)
 from .llm import ScriptProcessor
 from .assets import AssetGenerator
 from .storyboard import StoryboardGenerator
@@ -886,38 +896,110 @@ class ComicGenPipeline:
         if not raw_frames:
             raise RuntimeError("AI 分镜分析未返回任何帧数据，请重试。")
 
+        def get_or_create_scene(scene_name: str, description: str = "") -> str:
+            """Create an editable episode scene when LLM output names a new location."""
+            clean_name = (scene_name or "").strip() or "默认场景"
+            for scene in all_scenes:
+                if scene.name == clean_name or clean_name in scene.name or scene.name in clean_name:
+                    return scene.id
+            scene = Scene(
+                id=str(uuid.uuid4()),
+                name=clean_name,
+                description=description or "Auto-created from storyboard analysis",
+                visual_weight=3,
+                status=GenerationStatus.PENDING,
+            )
+            script.scenes.append(scene)
+            all_scenes.append(scene)
+            return scene.id
+
+        def get_or_create_character(character_name: str) -> Optional[str]:
+            """Keep draft projects usable even before entity extraction is run."""
+            clean_name = (character_name or "").strip()
+            if not clean_name:
+                return None
+            for character in all_characters:
+                if character.name == clean_name or clean_name in character.name or character.name in clean_name:
+                    return character.id
+            character = Character(
+                id=str(uuid.uuid4()),
+                name=clean_name,
+                description=f"{clean_name}，由分镜自动识别的角色，占位描述待制作人补全",
+                status=GenerationStatus.PENDING,
+            )
+            script.characters.append(character)
+            all_characters.append(character)
+            return character.id
+
+        def get_or_create_prop(prop_name: str) -> Optional[str]:
+            """Create placeholder props so tags and references do not disappear."""
+            clean_name = (prop_name or "").strip()
+            if not clean_name:
+                return None
+            for prop in all_props:
+                if prop.name == clean_name or clean_name in prop.name or prop.name in clean_name:
+                    return prop.id
+            prop = Prop(
+                id=str(uuid.uuid4()),
+                name=clean_name,
+                description=f"{clean_name}，由分镜自动识别的道具，占位描述待制作人补全",
+                status=GenerationStatus.PENDING,
+            )
+            script.props.append(prop)
+            all_props.append(prop)
+            return prop.id
+
         # Convert raw frame dicts to StoryboardFrame objects
         new_frames = []
         for idx, frame_data in enumerate(raw_frames):
             # Resolve scene ID by name
             scene_ref_name = frame_data.get("scene_ref_name", "")
-            scene_id = None
-            for scene in all_scenes:
-                if scene.name == scene_ref_name or scene_ref_name in scene.name:
-                    scene_id = scene.id
-                    break
-            if not scene_id and all_scenes:
-                scene_id = all_scenes[0].id  # Fallback to first scene
-            elif not scene_id:
-                scene_id = str(uuid.uuid4())  # Generate a placeholder ID
+            scene_id = get_or_create_scene(
+                scene_ref_name,
+                frame_data.get("visual_atmosphere", ""),
+            )
 
             # Resolve character IDs by names
             char_ref_names = frame_data.get("character_ref_names", [])
             character_ids = []
             for char_name in char_ref_names:
-                for char in all_characters:
-                    if char.name == char_name or char_name in char.name:
-                        character_ids.append(char.id)
-                        break
+                character_id = get_or_create_character(char_name)
+                if character_id:
+                    character_ids.append(character_id)
 
             # Resolve prop IDs by names
             prop_ref_names = frame_data.get("prop_ref_names", [])
             prop_ids = []
             for prop_name in prop_ref_names:
-                for prop in all_props:
-                    if prop.name == prop_name or prop_name in prop.name:
-                        prop_ids.append(prop.id)
-                        break
+                prop_id = get_or_create_prop(prop_name)
+                if prop_id:
+                    prop_ids.append(prop_id)
+
+            action_description = frame_data.get("action_description", "")
+            if not action_description:
+                action_description = "。".join(
+                    part
+                    for part in [
+                        frame_data.get("character_acting"),
+                        frame_data.get("key_action_physics"),
+                    ]
+                    if part
+                )
+            if not action_description:
+                action_description = frame_data.get("dialogue") or "镜头保持，角色继续推进剧情"
+
+            visual_atmosphere = frame_data.get("visual_atmosphere")
+            image_prompt = "，".join(
+                part
+                for part in [
+                    visual_atmosphere,
+                    action_description,
+                    frame_data.get("shot_size"),
+                    frame_data.get("camera_angle"),
+                    frame_data.get("camera_movement"),
+                ]
+                if part
+            )
 
             frame = StoryboardFrame(
                 id=str(uuid.uuid4()),
@@ -925,9 +1007,11 @@ class ComicGenPipeline:
                 character_ids=character_ids,
                 prop_ids=prop_ids,
                 # Action description - now a unified field combining character acting and physics
-                action_description=frame_data.get("action_description", ""),
+                action_description=action_description,
                 # Visual atmosphere
-                visual_atmosphere=frame_data.get("visual_atmosphere"),
+                visual_atmosphere=visual_atmosphere,
+                character_acting=frame_data.get("character_acting"),
+                key_action_physics=frame_data.get("key_action_physics"),
                 # Camera parameters
                 shot_size=frame_data.get("shot_size"),
                 camera_angle=frame_data.get("camera_angle", "平视"),
@@ -935,6 +1019,7 @@ class ComicGenPipeline:
                 # Dialogue
                 dialogue=frame_data.get("dialogue"),
                 speaker=frame_data.get("speaker"),
+                image_prompt=image_prompt,
                 # Status
                 status=GenerationStatus.PENDING
             )
@@ -998,6 +1083,50 @@ class ComicGenPipeline:
 
         script = self.storyboard_generator.generate_storyboard(script)
         self._save_data()
+        return script
+
+    def attach_web_images_to_storyboard(self, script_id: str, media_items: List[Dict[str, Any]]) -> Script:
+        """Attach collected web images to storyboard frames that do not have images yet."""
+        from .models import ImageAsset, ImageVariant
+
+        script = self.scripts.get(script_id)
+        if not script:
+            raise ValueError("Script not found")
+
+        image_urls = [
+            str(item.get("url"))
+            for item in media_items
+            if item.get("type") == "image" and item.get("url")
+        ]
+        if not image_urls:
+            return script
+
+        assigned = 0
+        for frame in script.frames:
+            if frame.rendered_image_url or frame.image_url:
+                continue
+
+            image_url = image_urls[assigned % len(image_urls)]
+            variant = ImageVariant(
+                id=str(uuid.uuid4()),
+                url=image_url,
+                prompt_used="Auto-collected web image for storyboard continuity",
+                is_uploaded_source=True,
+                upload_type="web_image",
+            )
+            if not frame.rendered_image_asset:
+                frame.rendered_image_asset = ImageAsset()
+            frame.rendered_image_asset.variants.append(variant)
+            frame.rendered_image_asset.selected_id = variant.id
+            frame.rendered_image_url = image_url
+            frame.image_url = image_url
+            frame.status = GenerationStatus.COMPLETED
+            frame.updated_at = time.time()
+            assigned += 1
+
+        if assigned:
+            script.updated_at = time.time()
+            self._save_data()
         return script
 
     def update_frame(self, script_id: str, frame_id: str, **kwargs) -> Script:

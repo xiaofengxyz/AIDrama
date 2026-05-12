@@ -34,6 +34,7 @@ export default function StoryboardComposer() {
     const [insertIndex, setInsertIndex] = useState<number | null>(null);
     const [extractingFrameId, setExtractingFrameId] = useState<string | null>(null);
     const [showScriptOverlay, setShowScriptOverlay] = useState(false);
+    const [isCollectingWebImages, setIsCollectingWebImages] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploadTargetFrameId, setUploadTargetFrameId] = useState<string | null>(null);
@@ -214,6 +215,33 @@ export default function StoryboardComposer() {
         }
     };
 
+    const handleCollectWebImages = async () => {
+        if (!currentProject) return;
+        if (!currentProject.frames?.length) {
+            alert("请先生成或新增分镜帧，再自动采集图片。");
+            return;
+        }
+
+        setIsCollectingWebImages(true);
+        try {
+            const missingCount = currentProject.frames.filter((frame: any) => !frame.rendered_image_url && !frame.image_url).length;
+            const result = await api.collectWebMedia(currentProject.id, {
+                media_type: "image",
+                count: Math.max(3, Math.min(missingCount || 3, 6)),
+                attach_to: "storyboard",
+            });
+            if (result.project) {
+                updateProject(currentProject.id, { ...result.project, originalText: result.project.original_text });
+            }
+            alert(`已自动采集 ${result.items.length} 张网络图片，并挂载 ${result.attached_count || 0} 个缺图分镜。`);
+        } catch (error: any) {
+            console.error("Failed to collect web images:", error);
+            alert(`自动采集图片失败：${extractErrorDetail(error, error?.message || "请稍后重试")}`);
+        } finally {
+            setIsCollectingWebImages(false);
+        }
+    };
+
     const handleRenderFrame = async (frame: any, batchSize: number = 1, e?: React.MouseEvent) => {
         e?.stopPropagation();
         if (!currentProject) return;
@@ -328,6 +356,15 @@ export default function StoryboardComposer() {
                     <Layout size={16} className="text-primary" /> Storyboard Frames
                 </h3>
                 <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleCollectWebImages}
+                        disabled={isCollectingWebImages}
+                        className="flex items-center gap-1.5 text-xs text-sky-300 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-sky-500/10 transition-colors disabled:opacity-50"
+                        title="从网上自动采集图片并填充缺图分镜"
+                    >
+                        {isCollectingWebImages ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                        {isCollectingWebImages ? "采集中..." : "采集图片"}
+                    </button>
                     <button
                         onClick={() => setShowScriptOverlay(true)}
                         className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-white/5 transition-colors"

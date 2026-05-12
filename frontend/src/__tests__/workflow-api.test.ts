@@ -61,4 +61,28 @@ describe("workflow API client", () => {
     expect(state.version).toBe("cineforge_workflow.v1");
     expect(state.stages[0].id).toBe("video_runtime");
   });
+
+  it("collects web media through the project-scoped recovery endpoint", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      status: "ready",
+      source: "web_media_collector.v1",
+      query: "night corridor",
+      media_type: "image",
+      items: [{ id: "web-image-1", type: "image", url: "web_media/images/one.jpg" }],
+      attached_count: 1,
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await api.collectWebMedia("project-1", {
+      media_type: "image",
+      count: 3,
+      attach_to: "storyboard",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(`${API_URL}/projects/project-1/web_media/collect`, expect.objectContaining({
+      method: "POST",
+    }));
+    expect(result.items[0].url).toBe("web_media/images/one.jpg");
+    expect(result.attached_count).toBe(1);
+  });
 });

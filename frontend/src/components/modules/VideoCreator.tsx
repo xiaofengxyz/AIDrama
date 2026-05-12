@@ -17,8 +17,8 @@ import {
 
 
 import { useProjectStore } from "@/store/projectStore";
-import { api, API_URL, VideoTask } from "@/lib/api";
-import { getAssetUrl, getAssetUrlWithTimestamp } from "@/lib/utils";
+import { api, API_URL, VideoTask, type WebMediaItem } from "@/lib/api";
+import { extractErrorDetail, getAssetUrl, getAssetUrlWithTimestamp } from "@/lib/utils";
 import PromptBuilder, { PromptSegment, PromptBuilderRef } from "./PromptBuilder";
 import type { VideoParams } from "@/store/projectStore";
 
@@ -77,6 +77,9 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
     const [selectedReferenceVideos, setSelectedReferenceVideos] = useState<string[]>([]); // New state for R2V
     const [uploadingPaths, setUploadingPaths] = useState<Record<string, string>>({}); // Map blobUrl -> serverUrl
     const [activeTab, setActiveTab] = useState<"storyboard" | "upload">("storyboard");
+    const [isCollectingImages, setIsCollectingImages] = useState(false);
+    const [isCollectingVideos, setIsCollectingVideos] = useState(false);
+    const [collectedReferenceVideos, setCollectedReferenceVideos] = useState<any[]>([]);
 
     // R2V Cast Slots: 3 slots for reference videos
     const [castSlots, setCastSlots] = useState<{ url: string; name: string }[]>([]);
@@ -153,6 +156,16 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
     const [isPolishing, setIsPolishing] = useState(false);
     const [feedbackText, setFeedbackText] = useState("");
 
+    const buildLocalPolishFallback = (draftPrompt: string) => {
+        const motionDesc = getMotionDescription();
+        const base = draftPrompt.trim();
+        const suffix = motionDesc ? `, ${motionDesc}` : "";
+        return {
+            cn: `${base}${motionDesc ? `，${motionDesc}` : ""}。保持角色身份一致，动作清晰，镜头连续，电影级真实质感。`,
+            en: `${base}${suffix}. Keep character identity consistent, describe clear subject motion and coherent camera movement, cinematic realistic quality.`,
+        };
+    };
+
     const handlePolish = async (feedback: string = "") => {
         const draftPrompt = feedback ? (polishedPrompt?.en || prompt) : prompt;
         if (!draftPrompt) return;
@@ -174,11 +187,14 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
             }
             if (res.prompt_cn && res.prompt_en) {
                 setPolishedPrompt({ cn: res.prompt_cn, en: res.prompt_en });
-                setFeedbackText("");
+            } else {
+                setPolishedPrompt(buildLocalPolishFallback(draftPrompt));
             }
+            setFeedbackText("");
         } catch (error) {
             console.error("Polish failed", error);
-            alert("AI 润色失败");
+            setPolishedPrompt(buildLocalPolishFallback(draftPrompt));
+            setFeedbackText("");
         } finally {
             setIsPolishing(false);
         }
@@ -217,6 +233,68 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
         });
 
         setSelectedImages(prev => [...prev, ...newImages]);
+    };
+
+    const handleCollectWebImages = async () => {
+        if (!currentProject) return;
+        setIsCollectingImages(true);
+        try {
+            const result = await api.collectWebMedia(currentProject.id, {
+                media_type: "image",
+                count: 3,
+            });
+            const imageUrls = result.items
+                .filter((item: WebMediaItem) => item.type === "image" && item.url)
+                .map((item: WebMediaItem) => item.url);
+            setSelectedImages(prev => {
+                const merged = [...prev];
+                imageUrls.forEach(url => {
+                    if (!merged.includes(url)) merged.push(url);
+                });
+                return merged;
+            });
+            setActiveTab("upload");
+            if (!prompt.trim() && result.query) {
+                setSegments([{ type: "text", value: `${result.query}, cinematic motion, stable camera`, id: `web-${Date.now()}` }]);
+            }
+        } catch (error: any) {
+            console.error("Collect web images failed", error);
+            alert(`自动采集图片失败：${extractErrorDetail(error, error?.message || "请稍后重试")}`);
+        } finally {
+            setIsCollectingImages(false);
+        }
+    };
+
+    const handleCollectWebVideos = async () => {
+        if (!currentProject) return;
+        setIsCollectingVideos(true);
+        try {
+            const result = await api.collectWebMedia(currentProject.id, {
+                media_type: "video",
+                count: 3,
+            });
+            const videos = result.items
+                .filter((item: WebMediaItem) => item.type === "video" && item.url)
+                .map((item: WebMediaItem) => ({
+                    url: item.url,
+                    thumbnail: "",
+                    title: item.title || "Web motion reference",
+                    assetName: item.title || "Web Reference",
+                    type: "web_collect",
+                }));
+            setCollectedReferenceVideos(prev => {
+                const known = new Set(prev.map(video => video.url));
+                return [...prev, ...videos.filter(video => !known.has(video.url))];
+            });
+            if (videos[0] && !castSlots[0]?.url) {
+                handleCastSlotSelect(0, { url: videos[0].url, name: videos[0].assetName });
+            }
+        } catch (error: any) {
+            console.error("Collect web videos failed", error);
+            alert(`自动采集视频失败：${extractErrorDetail(error, error?.message || "请稍后重试")}`);
+        } finally {
+            setIsCollectingVideos(false);
+        }
     };
 
     const handleAssetSelect = (url: string) => {
@@ -290,17 +368,37 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
     };
 
     const handleSubmit = async () => {
+        if (!currentProject) {
+            alert("项目未加载，请返回项目列表重新进入。");
+            return;
+        }
         // Validation based on mode
         if (generationMode === 'i2v') {
-            if (selectedImages.length === 0 || !prompt || !currentProject) return;
+            if (selectedImages.length === 0) {
+                alert("I2V 模式请先选择首帧图片，或点击“采集图片”。");
+                return;
+            }
+            if (!prompt) {
+                alert("请先填写视频提示词。");
+                return;
+            }
         } else {
             // R2V mode: need at least one cast slot filled
             const filledSlots = castSlots.filter(s => s.url);
             if (filledSlots.length === 0) {
-                alert("R2V 模式请至少填充一个角色槽位 (@Ref_A)");
+                alert("R2V 模式请至少填充一个角色槽位，或点击“采集视频”。");
                 return;
             }
-            if (!prompt || !currentProject) return;
+            if (!prompt) {
+                alert("请先填写视频提示词。");
+                return;
+            }
+        }
+
+        const pendingUploads = selectedImages.filter(img => img.startsWith("blob:") && !uploadingPaths[img]);
+        if (pendingUploads.length > 0) {
+            alert("图片仍在上传，请等待缩略图遮罩消失后再提交。");
+            return;
         }
 
         setIsSubmitting(true);
@@ -440,9 +538,9 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
 
             // Clear selection after successful submit
             // setSelectedImages([]); // Keep selection for iterative generation
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to submit task:", error);
-            alert("提交失败");
+            alert(`提交失败：${extractErrorDetail(error, error?.message || "请检查模型 Key、首帧图片和视频参数")}`);
             // Refresh to remove optimistic updates
             const updatedProject = await api.getProject(currentProject.id);
             onTaskCreated(updatedProject);
@@ -534,7 +632,8 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
                 assetName: p.name,
                 type: 'prop'
             }))
-        )
+        ),
+        ...collectedReferenceVideos
     ].filter(v => v.url && v.url !== 'null' && v.url !== 'undefined') : [];
 
     return (
@@ -587,25 +686,36 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <label className="text-sm font-medium text-gray-300">首帧图片 (First Frame)</label>
-                                <div className="flex bg-white/5 rounded-lg p-1 gap-1">
+                                <div className="flex items-center gap-2">
                                     <button
-                                        onClick={() => setActiveTab("storyboard")}
-                                        className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all ${activeTab === "storyboard"
-                                            ? "bg-primary text-white shadow-sm"
-                                            : "text-gray-400 hover:text-white hover:bg-white/5"
-                                            }`}
+                                        onClick={handleCollectWebImages}
+                                        disabled={isCollectingImages}
+                                        className="px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/20 disabled:opacity-50"
+                                        title="从网上自动采集几张首帧图片"
                                     >
-                                        <Layout size={14} /> Storyboard
+                                        {isCollectingImages ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
+                                        {isCollectingImages ? "采集中..." : "采集图片"}
                                     </button>
-                                    <button
-                                        onClick={() => setActiveTab("upload")}
-                                        className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all ${activeTab === "upload"
-                                            ? "bg-primary text-white shadow-sm"
-                                            : "text-gray-400 hover:text-white hover:bg-white/5"
-                                            }`}
-                                    >
-                                        <Upload size={14} /> Upload
-                                    </button>
+                                    <div className="flex bg-white/5 rounded-lg p-1 gap-1">
+                                        <button
+                                            onClick={() => setActiveTab("storyboard")}
+                                            className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all ${activeTab === "storyboard"
+                                                ? "bg-primary text-white shadow-sm"
+                                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                                }`}
+                                        >
+                                            <Layout size={14} /> Storyboard
+                                        </button>
+                                        <button
+                                            onClick={() => setActiveTab("upload")}
+                                            className={`px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all ${activeTab === "upload"
+                                                ? "bg-primary text-white shadow-sm"
+                                                : "text-gray-400 hover:text-white hover:bg-white/5"
+                                                }`}
+                                        >
+                                            <Upload size={14} /> Upload
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -846,7 +956,18 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
 
                             {/* Cast Slots (卡司槽位) */}
                             <div className="space-y-3">
-                                <label className="text-sm font-medium text-gray-300">卡司槽位 (Cast Slots)</label>
+                                <div className="flex items-center justify-between gap-3">
+                                    <label className="text-sm font-medium text-gray-300">卡司槽位 (Cast Slots)</label>
+                                    <button
+                                        onClick={handleCollectWebVideos}
+                                        disabled={isCollectingVideos}
+                                        className="px-3 py-1.5 text-xs rounded-md flex items-center gap-2 transition-all text-purple-200 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 disabled:opacity-50"
+                                        title="从网上自动采集几个参考视频"
+                                    >
+                                        {isCollectingVideos ? <Loader2 size={14} className="animate-spin" /> : <Film size={14} />}
+                                        {isCollectingVideos ? "采集中..." : "采集视频"}
+                                    </button>
+                                </div>
                                 <div className="grid grid-cols-3 gap-4">
                                     {[0, 1, 2].map((slotIndex) => {
                                         const slot = castSlots[slotIndex];
@@ -917,7 +1038,7 @@ export default function VideoCreator({ onTaskCreated, remixData, onRemixClear, p
                                 </div>
                                 {availableReferenceVideos.length === 0 && (
                                     <p className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-                                        ⚠️ 无可用的参考视频。请先在 Assets 阶段为角色/场景生成 Motion Reference 视频。
+                                        无可用的参考视频。请先在 Assets 阶段为角色/场景生成 Motion Reference 视频，或点击“采集视频”临时补齐参考素材。
                                     </p>
                                 )}
                             </div>

@@ -50,6 +50,9 @@
 | BUG-004 | P1 | 缺少 nginx API 前缀测试 | 后续新增端点容易再次漏代理 | 已补测试 |
 | BUG-005 | P2 | 文档中的上游 clone 路径指向旧脚手架 | 后续多候选仓库管理不清晰 | 已更新 |
 | BUG-006 | P1 | QA & Export 点击 `Start Render` 时，缺少已选择视频会显示泛化的 `failed to export project` | 制作人无法判断是 FFmpeg、素材缺失还是导出链路坏了 | 已修复：缺素材时返回 render package 与阻塞项 |
+| BUG-007 | P1 | `生成分镜` 遇到非标准 LLM JSON 或无实体上下文时会阻断制作 | 制作人无法继续编辑分镜、进入图片/视频阶段 | 已修复：JSON 多候选解析、轻量修复、deterministic fallback、缺省场景/角色/道具补齐 |
+| BUG-008 | P1 | Motion 页无首帧图、无参考视频或上传未完成时提交体验失败 | I2V/R2V 无法从空项目快速验证链路，错误提示不清楚 | 已修复：`采集图片`、`采集视频`、上传等待和后端 detail 透传 |
+| BUG-009 | P2 | `workflow_switch` 只有文档/API，没有制作人页面可见入口 | 用户不知道自动/人工开关在哪、按钮叫什么 | 已修复：`9. QA & Export` 新增 `Workflow Switches` 面板和 `Refresh Switches` 按钮 |
 
 ## 回归建议
 
@@ -114,6 +117,13 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-048 | Auto Drama dry-run | `POST /film/auto-drama/run` | 返回 novel plan、screenplay、Story Graph、Director Program、QA、Ledger、Final Edit |
 | TC-049 | Auto Drama 写入 Studio | `persist_project=true` | 创建可编辑草稿项目、分镜 frames，并返回 `#/project/{id}/step/export` |
 | TC-050 | Auto Drama 人工门控 | 请求 `auto_overrides={"02_stage1_novel_engine": false}` | 停在 Novel Engine 后，保留 novel plan，不继续 Final Edit |
+| TC-051 | 分镜 JSON 韧性 | LLM 返回顶层数组、尾逗号或缺 `action_description` | 解析出可用 frames，并从 acting/physics 合成动作描述 |
+| TC-052 | 分镜 fallback | 文本模型不可用或输出无法修复 | 返回可编辑 fallback 分镜，不中断 UI |
+| TC-053 | Draft 分镜实体补齐 | 草稿项目没有角色/场景/道具，分镜输出引用新名字 | 自动创建占位角色、场景、道具并挂到 frame |
+| TC-054 | Web 图片采集 | 点击 Storyboard `采集图片` 或调用 `/web_media/collect` | 下载或保留远程 URL，并可挂到缺图分镜 |
+| TC-055 | Web 视频采集 | Motion R2V 无参考视频时点击 `采集视频` | 返回 3 个可选参考视频并填入卡司槽位 |
+| TC-056 | Motion 润色兜底 | `/video/polish_prompt` 失败或返回空 | 页面显示本地双语兜底提示词，可点击 `应用` |
+| TC-057 | workflow_switch 可见化 | 进入 `9. QA & Export` | `Workflow Switches` 面板展示 00-09 模块、auto/manual、manual gates 和 `Refresh Switches` |
 
 ## 本次九阶段可视化新增自动化测试
 
@@ -130,6 +140,9 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | `tests/test_model_runtime_config.py` | 统一模型配置层优先级、base url 解析、密钥不泄露 |
 | `tests/test_workflow_prompt_switches.py` | 00-09 prompt 开关解析、自动执行计划、人工停顿计划 |
 | `tests/test_auto_drama_pipeline.py` | Novel Engine、文字到 dry-run 漫剧包、人工门控停顿 |
+| `tests/test_storyboard_resilience.py` | 分镜 JSON 容错、fallback 数据可编辑、草稿实体补齐 |
+| `tests/test_web_media_collector.py` | Web 图片/视频采集下载、网络失败兜底、分镜挂图 |
+| `frontend/src/__tests__/workflow-switches-api.test.ts` | `Workflow Switches` 页面所需 `/film/workflow/prompts` API client |
 
 新增验收命令：
 
@@ -141,4 +154,5 @@ python3 -m pytest tests/test_film_pipeline_api.py tests/test_film_production_pip
 python3 -m pytest tests/test_series_production_blueprint.py -q -s
 python3 -m pytest tests/test_film_workflow.py -q -s
 python3 -m pytest tests/test_model_runtime_config.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py -q -s
+python3 -m pytest tests/test_storyboard_resilience.py tests/test_web_media_collector.py -q -s
 ```

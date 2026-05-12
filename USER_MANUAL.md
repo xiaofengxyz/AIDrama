@@ -35,6 +35,9 @@
 | 统一模型适配配置层 | 已完成 | `/config/env`、Settings、`src/models/runtime_config.py` |
 | Codex Workflow 自动/人工开关 | 已完成 | `docs/Codex_Workflow_Prompts/*.md`、`GET /film/workflow/prompts` |
 | 一段文字到小说再到漫剧 dry-run | 已完成 | `POST /film/auto-drama/run`，可自动创建 Studio 草稿项目 |
+| 分镜生成失败兜底 | 已完成 | `4. Storyboard` 的 `生成分镜`，LLM JSON 异常时自动生成可编辑分镜 |
+| 无素材时自动采集图片/视频 | 已完成 | `4. Storyboard` 的 `采集图片`、`5. Motion` 的 `采集图片` / `采集视频` |
+| workflow_switch 页面可见 | 已完成 | `9. QA & Export` 的 `Workflow Switches` 面板，按钮叫 `Refresh Switches` |
 
 结论：文档要求的工业级“可测试闭环”已经完成，且工作流状态、可编辑/可重生成意图、QA/Retry、导出兜底、模型配置隔离、工作流自动/人工停顿和文字到漫剧 dry-run 已经具备。真实出片仍需要配置模型 Key，并在 UI 的图片、视频、配音、合成步骤里实际调用模型。
 
@@ -142,6 +145,17 @@ curl -sS http://localhost:17177/film/workflow/prompts
 - `stop_after_stage: true`：显式要求停在该阶段后。
 
 默认 00-09 全部是自动模式，所以一键 dry-run 会完整走到 Final Integration。制作人要人工审某一阶段时，改对应 prompt 文件开关，或在 API 请求中传 `auto_overrides`。
+
+页面上也能看到这个开关：进入项目工作台左侧 `9. QA & Export`，页面中部有 `Workflow Switches` 面板。右上角按钮叫 `Refresh Switches`，点击后重新读取 `/film/workflow/prompts`。面板里每个 00-09 模块会显示 `auto` 或 `manual`，并显示 `auto_advance=true/false`、manual gates 数量和 first waiting stage。
+
+Web 素材采集可选环境变量：
+
+| 环境变量 | 说明 |
+|---|---|
+| `AIDRAMA_WEB_IMAGE_URLS` | 逗号分隔的图片 URL 模板，支持 `{query}`、`{raw_query}`、`{index}`、`{seed}` |
+| `AIDRAMA_WEB_VIDEO_URLS` | 逗号分隔的视频 URL 模板，支持同上占位符 |
+
+不配置时，系统使用公开示例源采集少量图片/视频并下载到 `output/web_media/`。这些素材适合做试制、占位和连通性测试；正式商用发布前要替换为自有、授权或模型生成素材。
 
 配置完成后启动：
 
@@ -285,10 +299,14 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 
 进入分镜步骤：
 
-1. 先让系统根据剧本生成分镜。
+1. 点击 `生成分镜`，系统根据剧本生成分镜。
 2. 人工检查每个镜头的角色、动作、情绪、构图和运镜。
 3. 把大动作拆小：跑、转身、开门、回头、拔枪不要塞进一个长镜头。
 4. 每个镜头控制在 3-5 秒，重要反应镜头可以 4-6 秒。
+
+如果 `生成分镜` 遇到模型 JSON 格式异常、Key 临时不可用或剧本还没有实体抽取，系统会自动生成一组可编辑分镜，不再直接中断。你仍然要人工复核这些 fallback 分镜，把角色、场景、道具和动作补准。
+
+如果分镜已经有了但缺图片，点击顶部 `采集图片`。它会从网上采集几张图片，下载到 `output/web_media/images/`，并自动填充没有图片的分镜。正式出片前建议把这些网络素材替换为自有参考图或真实模型生成图。
 
 行业痛点“抽卡很辛苦”的根源是变量太多。这里的原则是每次只改变一个变量：模型、seed、参考图、运动提示或时长，不要全部一起改。
 
@@ -303,6 +321,14 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 5. 每个候选记录模型、prompt、参考图、seed、成本、耗时和人工评分。
 
 不要一开始就追求全片高规格。先把角色和镜头连续性跑顺，再把少数关键镜头升级模型。
+
+进入 `5. Motion` 后：
+
+1. `首帧驱动 (I2V)`：优先从 Storyboard 选择已有分镜图；没有图时点击 `采集图片`，系统会自动补几张网络首帧图片。
+2. 输入提示词后点击 `AI 润色`。如果后端文本模型失败，页面会给出本地兜底的双语运动提示词，不会只显示失败。
+3. 点击 `应用` 把英文提示词写回生成输入。
+4. 点击 `加入生成队列 (Ctrl+Enter)`。如果图片还在上传，页面会提示等待上传完成；如果后端返回错误，会显示具体 detail。
+5. `角色驱动 (R2V)`：如果没有 Motion Reference，点击 `采集视频` 自动采集几个参考视频，先填入角色槽位做连通性验证。
 
 ### 4.7 QA & Export 第 9 步
 
@@ -504,6 +530,22 @@ curl -sS -X POST http://localhost:17177/film/pipeline/run \
 curl -sS http://localhost:17177/projects/{projectId}/workflow
 ```
 
+自动采集 Web 素材：
+
+```bash
+curl -sS -X POST http://localhost:17177/projects/{projectId}/web_media/collect \
+  -H 'Content-Type: application/json' \
+  -d '{"media_type":"both","count":3}'
+```
+
+给缺图分镜自动挂载图片：
+
+```bash
+curl -sS -X POST http://localhost:17177/projects/{projectId}/web_media/collect \
+  -H 'Content-Type: application/json' \
+  -d '{"media_type":"image","count":3,"attach_to":"storyboard"}'
+```
+
 记录重生成意图：
 
 ```bash
@@ -542,6 +584,9 @@ curl -sS http://localhost:17177/film/workflow/prompts
 | 批量生产混乱 | BatchProductionPlan、优先级、失败隔离、批次 summary |
 | 一上来烧钱 | dry-run、第 9 步结构验收、低清/短时长预检 |
 | 导出前素材不全 | `Start Render` 兜底导出 render package，不再只显示泛化失败 |
+| 分镜因模型格式异常卡死 | JSON 修复 + deterministic fallback，先产出可编辑分镜 |
+| 没有首帧图或参考视频无法测试 Motion | `采集图片` / `采集视频` 从 Web 临时补素材，先验证链路 |
+| 自动/人工 workflow 不透明 | `9. QA & Export` 的 `Workflow Switches` 面板显示每个模块开关 |
 
 ## 9. 团队分工建议
 
@@ -592,3 +637,16 @@ docker compose logs backend --tail=100
 - 降低分辨率、缩短时长。
 - 每个镜头只改一个变量。
 - 回看 Ledger 的 prompt fingerprint、QA finding 和 retry notes。
+
+分镜生成失败：
+
+- 先看 `4. Storyboard` 是否已经生成 fallback 分镜。
+- 如果有 fallback 分镜，直接编辑角色、场景、道具和动作后继续。
+- 如果没有图片，点 `采集图片` 临时补图，再进入 Motion。
+
+Motion 润色或提交失败：
+
+- `AI 润色` 后即使模型失败，也会出现本地兜底提示词；点击 `应用` 后继续。
+- I2V 没有首帧时点 `采集图片`。
+- R2V 没有参考视频时点 `采集视频`。
+- 如果上传图片后马上提交，等上传遮罩消失再点 `加入生成队列 (Ctrl+Enter)`。

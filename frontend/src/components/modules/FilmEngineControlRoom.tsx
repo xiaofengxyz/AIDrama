@@ -21,7 +21,7 @@ import {
     Upload,
 } from "lucide-react";
 import clsx from "clsx";
-import { api, type FilmPipelineRunResponse, type WorkflowStatePayload } from "@/lib/api";
+import { api, type FilmPipelineRunResponse, type WorkflowPromptSwitchesResponse, type WorkflowStatePayload } from "@/lib/api";
 import {
     buildFilmPipelinePayload,
     collectLedgerShotRuns,
@@ -60,6 +60,9 @@ export default function FilmEngineControlRoom() {
     const [exportActions, setExportActions] = useState<string[]>([]);
     const [workflowState, setWorkflowState] = useState<WorkflowStatePayload | null>(null);
     const [workflowError, setWorkflowError] = useState<string | null>(null);
+    const [promptSwitches, setPromptSwitches] = useState<WorkflowPromptSwitchesResponse | null>(null);
+    const [promptSwitchError, setPromptSwitchError] = useState<string | null>(null);
+    const [isLoadingPromptSwitches, setIsLoadingPromptSwitches] = useState(false);
     const [resolution, setResolution] = useState("1080p");
     const [format, setFormat] = useState("mp4");
     const [subtitles, setSubtitles] = useState("burn-in");
@@ -82,6 +85,19 @@ export default function FilmEngineControlRoom() {
             setWorkflowState(state);
         } catch (error: any) {
             setWorkflowError(error?.message || "Workflow state failed");
+        }
+    }, []);
+
+    const refreshPromptSwitches = useCallback(async () => {
+        setIsLoadingPromptSwitches(true);
+        setPromptSwitchError(null);
+        try {
+            const switches = await api.getWorkflowPromptSwitches();
+            setPromptSwitches(switches);
+        } catch (error: any) {
+            setPromptSwitchError(error?.message || "Workflow switches failed");
+        } finally {
+            setIsLoadingPromptSwitches(false);
         }
     }, []);
 
@@ -120,6 +136,10 @@ export default function FilmEngineControlRoom() {
             void runDryRun();
         }
     }, [payload?.graph_id, runDryRun]);
+
+    useEffect(() => {
+        void refreshPromptSwitches();
+    }, [refreshPromptSwitches]);
 
     const handleExport = async () => {
         if (!currentProject) return;
@@ -282,6 +302,13 @@ export default function FilmEngineControlRoom() {
                                 {workflowState && (
                                     <WorkflowReadiness workflowState={workflowState} />
                                 )}
+
+                                <WorkflowSwitchPanel
+                                    data={promptSwitches}
+                                    error={promptSwitchError}
+                                    isLoading={isLoadingPromptSwitches}
+                                    onRefresh={refreshPromptSwitches}
+                                />
 
                                 <div className="rounded-lg border border-white/10 bg-black/20">
                                     <div className="h-11 border-b border-white/10 px-4 flex items-center justify-between">
@@ -528,6 +555,106 @@ function WorkflowReadiness({ workflowState }: { workflowState: WorkflowStatePayl
                         </div>
                     );
                 })}
+            </div>
+        </div>
+    );
+}
+
+function WorkflowSwitchPanel({
+    data,
+    error,
+    isLoading,
+    onRefresh,
+}: {
+    data: WorkflowPromptSwitchesResponse | null;
+    error: string | null;
+    isLoading: boolean;
+    onRefresh: () => void;
+}) {
+    const summary = data?.execution_plan?.summary || {};
+    const steps = data?.execution_plan?.steps || [];
+    const stepByModule = new Map(steps.map((step: any) => [step.module_id, step]));
+
+    return (
+        <div className="rounded-lg border border-white/10 bg-black/20">
+            <div className="h-11 border-b border-white/10 px-4 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                    <SlidersHorizontal size={15} className="text-purple-300" />
+                    Workflow Switches
+                </h3>
+                <button
+                    onClick={onRefresh}
+                    disabled={isLoading}
+                    className="h-8 px-2.5 rounded-md border border-white/10 bg-white/5 hover:bg-white/10 text-xs text-gray-200 flex items-center gap-1.5 disabled:opacity-50"
+                    title="Refresh workflow_switch state"
+                >
+                    <RefreshCw size={13} className={isLoading ? "animate-spin" : ""} />
+                    Refresh Switches
+                </button>
+            </div>
+            <div className="p-4 space-y-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                    <span className="rounded border border-white/10 bg-white/[0.04] px-2 py-1">
+                        Source: {data?.source || "docs/Codex_Workflow_Prompts"}
+                    </span>
+                    <span className="rounded border border-emerald-500/20 bg-emerald-500/10 text-emerald-200 px-2 py-1">
+                        Auto {summary.auto_modules ?? 0}/{summary.module_count ?? 0}
+                    </span>
+                    <span className="rounded border border-amber-500/20 bg-amber-500/10 text-amber-200 px-2 py-1">
+                        Manual gates {summary.manual_gates ?? 0}
+                    </span>
+                    {data?.execution_plan?.first_waiting_stage && (
+                        <span className="rounded border border-red-500/20 bg-red-500/10 text-red-200 px-2 py-1">
+                            Pauses at {data.execution_plan.first_waiting_stage}
+                        </span>
+                    )}
+                </div>
+
+                {error && (
+                    <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+                        {error}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-2">
+                    {(data?.modules || []).map((module) => {
+                        const step = stepByModule.get(module.switch.module_id) as any;
+                        const waits = Boolean(step?.waits_for_user);
+                        const auto = module.switch.auto_advance && !waits;
+                        return (
+                            <div
+                                key={module.switch.module_id}
+                                className={clsx(
+                                    "rounded-lg border p-3 bg-white/[0.04]",
+                                    auto ? "border-emerald-500/25" : "border-amber-500/30"
+                                )}
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-mono text-gray-500">{String(module.order).padStart(2, "0")}</div>
+                                        <div className="text-sm font-semibold text-gray-200 truncate">
+                                            {module.switch.label || module.title}
+                                        </div>
+                                    </div>
+                                    <span className={clsx(
+                                        "text-[10px] rounded px-1.5 py-0.5 border uppercase",
+                                        auto
+                                            ? "text-emerald-200 border-emerald-500/30 bg-emerald-500/10"
+                                            : "text-amber-200 border-amber-500/30 bg-amber-500/10"
+                                    )}>
+                                        {auto ? "auto" : "manual"}
+                                    </span>
+                                </div>
+                                <div className="mt-2 text-[11px] text-gray-500 truncate">{module.switch.stage_id}</div>
+                                <div className="mt-2 flex gap-1 text-[10px] text-gray-400">
+                                    <span className={module.switch.auto_advance ? "text-emerald-300" : "text-amber-300"}>
+                                        auto_advance={String(module.switch.auto_advance)}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

@@ -195,12 +195,63 @@ export interface WorkflowStatePayload {
     metadata?: Record<string, unknown>;
 }
 
+export interface WorkflowPromptSwitch {
+    module_id: string;
+    stage_id: string;
+    label?: string;
+    auto_advance: boolean;
+    requires_human_review: boolean;
+    stop_after_stage: boolean;
+    description?: string;
+}
+
+export interface WorkflowPromptModule {
+    module_id: string;
+    order: number;
+    title: string;
+    path: string;
+    filename?: string;
+    body_preview?: string;
+    switch: WorkflowPromptSwitch;
+}
+
+export interface WorkflowPromptSwitchesResponse {
+    status: string;
+    source: string;
+    modules: WorkflowPromptModule[];
+    execution_plan: Record<string, any>;
+}
+
 export interface RenderExportResponse {
     url: string;
     mode?: "video" | "render_package" | string;
     warnings?: string[];
     action_required?: string[];
     workflow_state?: WorkflowStatePayload;
+}
+
+export interface WebMediaItem {
+    id: string;
+    type: "image" | "video" | string;
+    url: string;
+    remote_url: string;
+    title: string;
+    provider: string;
+    query: string;
+    license: string;
+    local_path?: string;
+    downloaded?: boolean;
+}
+
+export interface WebMediaCollectResponse {
+    status: string;
+    source: string;
+    query: string;
+    media_type: string;
+    items: WebMediaItem[];
+    attached_to?: string | null;
+    attached_count?: number;
+    project?: any;
 }
 
 export interface PilotSampleTemplate {
@@ -322,6 +373,11 @@ export const api = {
 
     runAutoDrama: async (payload: AutoDramaRunPayload): Promise<AutoDramaRunResponse> => {
         const res = await axios.post(`${API_URL}/film/auto-drama/run`, payload);
+        return res.data;
+    },
+
+    getWorkflowPromptSwitches: async (): Promise<WorkflowPromptSwitchesResponse> => {
+        const res = await axios.get(`${API_URL}/film/workflow/prompts`);
         return res.data;
     },
 
@@ -809,6 +865,23 @@ export const api = {
             throw new Error(detail);
         }
         return data as WorkflowStatePayload;
+    },
+
+    collectWebMedia: async (
+        scriptId: string,
+        payload: { media_type?: string; count?: number; query?: string; attach_to?: string | null }
+    ): Promise<WebMediaCollectResponse> => {
+        const response = await fetch(`${API_URL}/projects/${scriptId}/web_media/collect`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            const detail = data?.detail || data?.message || "Failed to collect web media";
+            throw new Error(detail);
+        }
+        return data as WebMediaCollectResponse;
     },
 
     regenerateWorkflowStage: async (scriptId: string, stageId: string, payload: { reason?: string; scope?: Record<string, unknown>; dry_run?: boolean }) => {

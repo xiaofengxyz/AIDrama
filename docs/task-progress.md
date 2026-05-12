@@ -1,6 +1,6 @@
 # 任务进度索引
 
-日期：2026-05-11
+日期：2026-05-12
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
@@ -13,6 +13,42 @@
 - `external/` 仅作为被忽略的上游参考区，不参与提交和构建。
 
 ## 本轮执行计划与状态
+
+### 2026-05-12 分镜/Motion 故障修复、Workflow Switch 可视化与 Web 素材采集
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 计划与故障定位 | 已完成 | 复核 AGENTS、进度索引、分镜生成、Motion 润色/提交、workflow_switch API、素材入口 | `rg`、读取前后端模块 |
+| 2. 分镜生成韧性 | 已完成 | 强化 LLM JSON 解析、失败回退、缺省场景/资产补齐，避免“生成分镜失败”阻断制作 | `tests/test_storyboard_resilience.py` |
+| 3. Web 素材采集 | 已完成 | 新增图片/视频采集服务与 `/projects/{id}/web_media/collect`，支持挂到分镜或供 Motion 使用 | `tests/test_web_media_collector.py`、前端 API 测试 |
+| 4. Motion 修复 | 已完成 | AI 润色失败兜底、上传等待、提交错误细化、无素材时一键采集图片/视频 | `workflow-api`、`tsc` |
+| 5. workflow_switch 可见化 | 已完成 | 在 `9. QA & Export` 显示 00-09 模块自动/人工开关和刷新按钮 | `workflow-switches-api`、`tsc` |
+| 6. 文档与测试工程 | 已完成 | 更新测试用例文档、用户操作手册、任务进度索引 | 文档复核 |
+| 7. 运行验证、清理、提交推送 | 已完成 | 宿主测试、Docker 重建冒烟、冲突检查、提交并 push 必要修改 | pytest、vitest、tsc、docker、git |
+
+本轮初步结论：
+
+- 分镜生成失败的主要风险点在 LLM 返回非标准 JSON、空 frames、无实体上下文时缺少可继续制作的 deterministic fallback。
+- Motion 页面失败的主要风险点在无首帧/无参考视频时没有替代素材入口、上传中 blob 会被跳过、错误提示过泛。
+- `workflow_switch` 已存在于 `docs/Codex_Workflow_Prompts` 和 `/film/workflow/prompts`，但制作人页面没有可见入口；本轮会放到 `9. QA & Export`。
+
+本轮阶段性验证记录：
+
+- `python3 -m compileall -q src/apps/comic_gen src/film_engine src/models`：通过。
+- 电脑重启恢复续跑：WSL 内 `docker` 初始不可用，已从 Windows 侧启动 Docker Desktop，daemon 恢复后继续执行 Docker 验证。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `python3 -m pytest tests/test_storyboard_resilience.py tests/test_web_media_collector.py tests/test_workflow_prompt_switches.py -q -s`：通过，5 passed，2 skipped（宿主缺 DashScope，完整 Pipeline 留到容器复测）。
+- `cd frontend && npm run test -- workflow-api workflow-switches-api`：通过，2 个测试文件，5 个测试。
+- `python3 -m pytest tests/test_storyboard_resilience.py tests/test_web_media_collector.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py tests/test_film_workflow.py tests/test_film_production_pipeline.py tests/test_series_production_blueprint.py -q -s`：通过，24 passed，2 skipped。
+- `cd frontend && npm run test`：通过，11 个测试文件，119 个测试。
+- `cd frontend && npm run test:ui`：通过，3 个测试文件，49 个测试；错误态用例保留预期 stderr。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建并启动。
+- `curl -I http://localhost:3014/`：HTTP 200。
+- `curl http://localhost:17177/film/workflow/prompts`：HTTP 200，返回 10 个模块、`workflow_prompt_switch.v1`、`status=ready`。
+- `POST /projects/{id}/web_media/collect`：HTTP 200，返回 `source=web_media_collector.v1`，图片挂载 `attached_count=1`；视频采集返回可用 video item。
+- `docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，170 passed，81 warnings。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
 
 ### 2026-05-12 模型适配隔离、Workflow 自动开关与文字到漫剧 Auto Drama
 
