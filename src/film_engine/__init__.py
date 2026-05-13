@@ -53,6 +53,12 @@ from .models import (
 from .orchestrator import FilmEngine
 from .novel import NovelChapter, NovelEngine, NovelPlan, NovelRelationship
 from .pipeline import FilmProductionPipeline
+from .production_extraction import (
+    EpisodeProductionExtractor,
+    EpisodeProductionPackage,
+    ExtractedProductionAsset,
+    ExtractedStoryboardFrame,
+)
 from .prompt_compiler import PromptCompiler
 from .qa import QAEngine
 from .registry import AssetRegistry, CharacterRegistry, SceneRegistry
@@ -103,6 +109,10 @@ __all__ = [
     "DirectorScene",
     "DirectorShot",
     "DryRunRuntimeAdapter",
+    "EpisodeProductionExtractor",
+    "EpisodeProductionPackage",
+    "ExtractedProductionAsset",
+    "ExtractedStoryboardFrame",
     "FinalEditClip",
     "FinalEditTimeline",
     "FinalEditingAssembler",

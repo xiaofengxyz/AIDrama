@@ -28,6 +28,10 @@ def test_auto_drama_pipeline_runs_text_to_final_edit_dry_run():
 
     assert run.status == "completed"
     assert run.novel_plan is not None
+    assert len(run.episode_packages) == 2
+    assert run.episode_packages[0].storyboard_frames
+    assert run.episode_packages[0].costumes
+    assert run.episode_packages[0].special_effects
     assert run.production_run is not None
     assert run.production_run.story_graph.beats
     assert run.production_run.final_edit.clips
@@ -46,4 +50,5 @@ def test_auto_drama_pipeline_waits_after_non_auto_stage():
     assert run.status == "waiting_for_user"
     assert run.waiting_for_stage == "stage1_novel_engine"
     assert run.novel_plan is not None
+    assert run.episode_packages
     assert run.production_run is None

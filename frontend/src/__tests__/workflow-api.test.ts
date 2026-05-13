@@ -85,4 +85,36 @@ describe("workflow API client", () => {
     expect(result.items[0].url).toBe("web_media/images/one.jpg");
     expect(result.attached_count).toBe(1);
   });
+
+  it("collects web media directly onto one asset", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({
+      status: "ready",
+      source: "web_media_collector.v1",
+      query: "Maya reference",
+      media_type: "both",
+      asset_type: "character",
+      asset_id: "char-1",
+      upload_type: "full_body",
+      items: [
+        { id: "web-image-1", type: "image", url: "web_media/images/maya.jpg" },
+        { id: "web-video-1", type: "video", url: "web_media/videos/maya.mp4" },
+      ],
+      attached_count: 2,
+      project: { id: "project-1" },
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await api.collectAssetWebMedia("project-1", "character", "char-1", {
+      media_type: "both",
+      count: 2,
+      upload_type: "full_body",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      `${API_URL}/projects/project-1/assets/character/char-1/web_media/collect`,
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.attached_count).toBe(2);
+    expect(result.items[1].url).toBe("web_media/videos/maya.mp4");
+  });
 });

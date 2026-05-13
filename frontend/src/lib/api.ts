@@ -138,6 +138,7 @@ export interface AutoDramaRunPayload {
     max_attempts?: number;
     min_score?: number;
     persist_project?: boolean;
+    persist_mode?: "project" | "series";
     auto_overrides?: Record<string, boolean>;
 }
 
@@ -146,9 +147,12 @@ export interface AutoDramaRunResponse {
     waiting_for_stage?: string | null;
     title: string;
     novel_plan?: Record<string, any> | null;
+    episode_packages?: Record<string, any>[];
     screenplay_text?: string;
     prompt_execution_plan?: Record<string, any>;
     project?: any;
+    series?: any;
+    episodes?: any[];
     next_hash?: string | null;
     story_graph?: FilmPipelineRunResponse["story_graph"] | null;
     director_program?: FilmPipelineRunResponse["director_program"] | null;
@@ -879,6 +883,25 @@ export const api = {
         const data = await response.json().catch(() => null);
         if (!response.ok) {
             const detail = data?.detail || data?.message || "Failed to collect web media";
+            throw new Error(detail);
+        }
+        return data as WebMediaCollectResponse;
+    },
+
+    collectAssetWebMedia: async (
+        scriptId: string,
+        assetType: "character" | "scene" | "prop",
+        assetId: string,
+        payload: { media_type?: string; count?: number; query?: string; upload_type?: string }
+    ): Promise<WebMediaCollectResponse> => {
+        const response = await fetch(`${API_URL}/projects/${scriptId}/assets/${assetType}/${assetId}/web_media/collect`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => null);
+        if (!response.ok) {
+            const detail = data?.detail || data?.message || "Failed to collect asset web media";
             throw new Error(detail);
         }
         return data as WebMediaCollectResponse;

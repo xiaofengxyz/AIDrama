@@ -9,13 +9,13 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#050508",
-        foreground: "#ededed",
-        glass: "rgba(255, 255, 255, 0.05)",
-        "glass-border": "rgba(255, 255, 255, 0.1)",
-        primary: "#646cff",
-        secondary: "#535bf2",
-        accent: "#ff0080",
+        background: "rgb(var(--background-rgb) / <alpha-value>)",
+        foreground: "rgb(var(--foreground-rgb) / <alpha-value>)",
+        glass: "rgb(var(--glass-rgb) / 0.05)",
+        "glass-border": "rgb(var(--glass-border-rgb) / 0.1)",
+        primary: "rgb(var(--primary-rgb) / <alpha-value>)",
+        secondary: "rgb(var(--secondary-rgb) / <alpha-value>)",
+        accent: "rgb(var(--accent-rgb) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "sans-serif"],

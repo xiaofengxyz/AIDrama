@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Plus, FolderOpen, RefreshCw, Library, Calendar, Play, Trash2, FileUp, X, ChevronDown, FileText } from "lucide-react";
+import { Plus, FolderOpen, RefreshCw, Library, Calendar, Play, Trash2, FileUp, X, ChevronDown, FileText, Palette } from "lucide-react";
 import { useProjectStore, Series, Project } from "@/store/projectStore";
 import ProjectCard from "@/components/project/ProjectCard";
 import CreateProjectDialog from "@/components/project/CreateProjectDialog";
@@ -13,6 +13,7 @@ import type { GlobalTab } from "@/components/layout/GlobalSidebar";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 import { parseWorkspaceHash, type WorkbenchStepId } from "@/lib/workspaceRouting";
+import { DEFAULT_STUDIO_THEME, STUDIO_THEMES, type StudioThemeId } from "@/lib/themePresets";
 
 const ProjectClient = dynamic(() => import("@/components/project/ProjectClient"), { ssr: false });
 const SeriesDetailPage = dynamic(() => import("@/components/series/SeriesDetailPage"), { ssr: false });
@@ -20,6 +21,79 @@ const ImportFileDialog = dynamic(() => import("@/components/series/ImportFileDia
 const SettingsPage = dynamic(() => import("@/components/settings/SettingsPage"), { ssr: false });
 const AssetLibraryPage = dynamic(() => import("@/components/library/AssetLibraryPage"), { ssr: false });
 const TemplateLibraryPanel = dynamic(() => import("@/components/modules/TemplateLibraryPanel"), { ssr: false });
+const OneSentenceDramaPanel = dynamic(() => import("@/components/modules/OneSentenceDramaPanel"), { ssr: false });
+
+/**
+ * Compact persistent theme switcher for the Studio workspace background and accent colors.
+ */
+function ThemeSwitcher({
+  selectedTheme,
+  onChange,
+}: {
+  selectedTheme: StudioThemeId;
+  onChange: (themeId: StudioThemeId) => void;
+}) {
+  return (
+    <div className="fixed right-5 top-5 z-40 flex items-center gap-2 rounded-lg border border-glass-border bg-black/55 p-2 backdrop-blur-xl">
+      <Palette size={16} className="text-gray-300" />
+      <div className="flex gap-1">
+        {STUDIO_THEMES.map((theme) => (
+          <button
+            key={theme.id}
+            onClick={() => onChange(theme.id)}
+            className={`rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors ${selectedTheme === theme.id
+              ? "bg-primary text-white"
+              : "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white"
+              }`}
+            title={`切换主题：${theme.label}`}
+          >
+            {theme.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Explains the three producer entry paths before the project list.
+ */
+function WorkspaceFlowPanel() {
+  const items = [
+    {
+      icon: Library,
+      title: "模板中心",
+      body: "从验证过的样片或 5 集蓝图开始，适合快速复刻生产结构。",
+    },
+    {
+      icon: FileText,
+      title: "一句话制片",
+      body: "从故事点生成小说计划、分集脚本、分镜和资产提取包。",
+    },
+    {
+      icon: FolderOpen,
+      title: "我的工作区",
+      body: "保存正在制作的系列和项目，继续补资产、分镜、视频、配音和导出。",
+    },
+  ];
+
+  return (
+    <section className="mb-6 grid grid-cols-1 gap-3 lg:grid-cols-3" aria-label="工作区流程地图">
+      {items.map((item) => {
+        const Icon = item.icon;
+        return (
+          <div key={item.title} className="rounded-lg border border-glass-border bg-black/35 p-4 backdrop-blur-md">
+            <div className="mb-2 flex items-center gap-2 text-white">
+              <Icon size={16} className="text-primary" />
+              <h2 className="text-sm font-semibold">{item.title}</h2>
+            </div>
+            <p className="text-xs leading-5 text-gray-400">{item.body}</p>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
 
 // ── Create Series Dialog ──
 function CreateSeriesDialog({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
@@ -328,6 +402,7 @@ export default function Home() {
   const [showCreateDropdown, setShowCreateDropdown] = useState(false);
   const [currentView, setCurrentView] = useState<'home' | 'project' | 'series' | 'series-episode' | 'library' | 'settings'>('home');
   const [activeTab, setActiveTab] = useState<GlobalTab>("workspace");
+  const [selectedTheme, setSelectedTheme] = useState<StudioThemeId>(DEFAULT_STUDIO_THEME);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [seriesId, setSeriesId] = useState<string | null>(null);
   const [episodeId, setEpisodeId] = useState<string | null>(null);
@@ -340,6 +415,22 @@ export default function Home() {
   const deleteSeries = useProjectStore((state) => state.deleteSeries);
   const setProjects = useProjectStore((state) => state.setProjects);
   const fetchSeriesList = useProjectStore((state) => state.fetchSeriesList);
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("aidrama-studio-theme") as StudioThemeId | null;
+    const nextTheme = STUDIO_THEMES.some((theme) => theme.id === savedTheme) ? savedTheme! : DEFAULT_STUDIO_THEME;
+    setSelectedTheme(nextTheme);
+    document.documentElement.setAttribute("data-studio-theme", nextTheme);
+  }, []);
+
+  /**
+   * Persists a selected visual theme and mirrors it to CSS variables immediately.
+   */
+  const handleThemeChange = (themeId: StudioThemeId) => {
+    setSelectedTheme(themeId);
+    window.localStorage.setItem("aidrama-studio-theme", themeId);
+    document.documentElement.setAttribute("data-studio-theme", themeId);
+  };
 
   // Sync projects and series from backend on mount
   useEffect(() => {
@@ -520,6 +611,8 @@ export default function Home() {
     // Workspace view
     return (
       <div className="container mx-auto px-6 py-8">
+        <WorkspaceFlowPanel />
+        <OneSentenceDramaPanel onCreated={syncAll} />
         <TemplateLibraryPanel onCreated={syncAll} />
 
         {/* Content Section */}
@@ -650,8 +743,10 @@ export default function Home() {
     <main className="relative h-screen w-screen bg-background flex flex-col">
       {/* Background Canvas */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <CreativeCanvas />
+        <CreativeCanvas themeId={selectedTheme} />
       </div>
+
+      <ThemeSwitcher selectedTheme={selectedTheme} onChange={handleThemeChange} />
 
       {/* AppShell with GlobalSidebar + content */}
       <div className="relative z-10 flex-1 overflow-hidden">

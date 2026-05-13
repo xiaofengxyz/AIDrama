@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from .models import FilmProductionRun, RetryPolicy, RuntimeBackend
 from .novel import NovelEngine, NovelPlan
 from .pipeline import FilmProductionPipeline
+from .production_extraction import EpisodeProductionExtractor, EpisodeProductionPackage
 from .workflow_prompts import (
     WorkflowPromptExecutionPlan,
     WorkflowPromptModule,
@@ -23,6 +24,7 @@ class AutoDramaRun(BaseModel):
     status: str = "completed"
     waiting_for_stage: Optional[str] = None
     novel_plan: Optional[NovelPlan] = None
+    episode_packages: list[EpisodeProductionPackage] = Field(default_factory=list)
     screenplay_text: str = ""
     production_run: Optional[FilmProductionRun] = None
     prompt_execution_plan: WorkflowPromptExecutionPlan
@@ -36,10 +38,12 @@ class AutoDramaPipeline:
         self,
         *,
         novel_engine: Optional[NovelEngine] = None,
+        production_extractor: Optional[EpisodeProductionExtractor] = None,
         film_pipeline: Optional[FilmProductionPipeline] = None,
         prompt_root: str | Path = "docs/Codex_Workflow_Prompts",
     ):
         self.novel_engine = novel_engine or NovelEngine()
+        self.production_extractor = production_extractor or EpisodeProductionExtractor()
         self.film_pipeline = film_pipeline or FilmProductionPipeline()
         self.prompt_root = Path(prompt_root)
 
@@ -60,6 +64,7 @@ class AutoDramaPipeline:
         )
         completed_module_ids = []
         novel_plan: Optional[NovelPlan] = None
+        episode_packages: list[EpisodeProductionPackage] = []
         screenplay_text = ""
         production_run: Optional[FilmProductionRun] = None
 
@@ -71,6 +76,7 @@ class AutoDramaPipeline:
                     title=title,
                     target_chapters=target_chapters,
                 )
+                episode_packages = self.production_extractor.extract(novel_plan)
                 screenplay_text = self.novel_engine.to_screenplay(novel_plan)
 
             if switch.stage_id == "final_integration":
@@ -80,6 +86,7 @@ class AutoDramaPipeline:
                         title=title,
                         target_chapters=target_chapters,
                     )
+                    episode_packages = self.production_extractor.extract(novel_plan)
                     screenplay_text = self.novel_engine.to_screenplay(novel_plan)
                 production_run = self.film_pipeline.run_script(
                     screenplay_text,
@@ -96,6 +103,7 @@ class AutoDramaPipeline:
                     status="waiting_for_user",
                     waiting_for_stage=switch.stage_id,
                     novel_plan=novel_plan,
+                    episode_packages=episode_packages,
                     screenplay_text=screenplay_text,
                     production_run=production_run,
                     prompt_execution_plan=build_prompt_execution_plan(
@@ -114,6 +122,7 @@ class AutoDramaPipeline:
                 title=title,
                 target_chapters=target_chapters,
             )
+            episode_packages = self.production_extractor.extract(novel_plan)
             screenplay_text = self.novel_engine.to_screenplay(novel_plan)
 
         if production_run is None:
@@ -129,6 +138,7 @@ class AutoDramaPipeline:
             title=title,
             status="completed",
             novel_plan=novel_plan,
+            episode_packages=episode_packages,
             screenplay_text=screenplay_text,
             production_run=production_run,
             prompt_execution_plan=build_prompt_execution_plan(

@@ -6,11 +6,35 @@
 
 :root {
   --foreground-rgb: 237, 237, 237;
+  --background-rgb: 5, 5, 8;
   --background-start-rgb: 5, 5, 8;
   --background-end-rgb: 5, 5, 8;
+  --glass-rgb: 255, 255, 255;
+  --glass-border-rgb: 255, 255, 255;
+  --primary-rgb: 104, 225, 253;
+  --secondary-rgb: 111, 120, 255;
+  --accent-rgb: 246, 193, 119;
   --font-inter: 'Inter', sans-serif;
   --font-jetbrains-mono: 'JetBrains Mono', monospace;
   --font-space-grotesk: 'Space Grotesk', sans-serif;
+}
+
+[data-studio-theme="dailies-green"] {
+  --background-rgb: 7, 17, 13;
+  --background-start-rgb: 7, 17, 13;
+  --background-end-rgb: 11, 24, 18;
+  --primary-rgb: 139, 215, 163;
+  --secondary-rgb: 125, 211, 252;
+  --accent-rgb: 245, 208, 111;
+}
+
+[data-studio-theme="ember-cut"] {
+  --background-rgb: 19, 8, 10;
+  --background-start-rgb: 19, 8, 10;
+  --background-end-rgb: 29, 15, 12;
+  --primary-rgb: 255, 122, 89;
+  --secondary-rgb: 125, 211, 252;
+  --accent-rgb: 250, 204, 21;
 }
 
 body {

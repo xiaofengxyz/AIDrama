@@ -719,7 +719,7 @@ class ComicGenPipeline:
             image_url: URL of the uploaded image (OSS Object Key)
             description: Optional modified description for reverse generation
         """
-        from .models import ImageVariant, AssetUnit
+        from .models import ImageAsset, ImageVariant, AssetUnit
 
         script = self.scripts.get(script_id)
         if not script:
@@ -795,6 +795,9 @@ class ComicGenPipeline:
                 target_asset.full_body_asset.variants.append(legacy_variant)
                 target_asset.full_body_asset.selected_id = new_variant.id
                 target_asset.full_body_image_url = image_url
+                # Keep legacy preview fields in sync so asset cards show web/uploaded references.
+                target_asset.image_url = target_asset.image_url or image_url
+                target_asset.avatar_url = target_asset.avatar_url or image_url
             elif upload_type == "head_shot":
                 # Ensure headshot_asset exists
                 if target_asset.headshot_asset is None:
@@ -803,6 +806,8 @@ class ComicGenPipeline:
                 target_asset.headshot_asset.variants.append(legacy_variant)
                 target_asset.headshot_asset.selected_id = new_variant.id
                 target_asset.headshot_image_url = image_url
+                target_asset.avatar_url = image_url
+                target_asset.image_url = target_asset.image_url or image_url
             elif upload_type == "three_views":
                 # Ensure three_view_asset exists
                 if target_asset.three_view_asset is None:
@@ -811,19 +816,16 @@ class ComicGenPipeline:
                 target_asset.three_view_asset.variants.append(legacy_variant)
                 target_asset.three_view_asset.selected_id = new_variant.id
                 target_asset.three_view_image_url = image_url
+                target_asset.image_url = target_asset.image_url or image_url
 
             logger.info(f"Added uploaded variant {new_variant.id} to character {asset_id} {upload_type}")
 
         elif asset_type in ["scene", "prop"]:
-            # Scene and Prop have a single 'image' asset unit
-            if not hasattr(target_asset, 'image') or target_asset.image is None:
-                target_asset.image = AssetUnit()
-
-            target_asset.image.image_variants.append(new_variant)
-            target_asset.image.selected_image_id = new_variant.id
-            target_asset.image.image_updated_at = time.time()
-
-            # Also update legacy image_url field
+            # Scene and Prop use the legacy ImageAsset container in the current UI.
+            if target_asset.image_asset is None:
+                target_asset.image_asset = ImageAsset()
+            target_asset.image_asset.variants.append(new_variant)
+            target_asset.image_asset.selected_id = new_variant.id
             target_asset.image_url = image_url
 
             logger.info(f"Added uploaded variant {new_variant.id} to {asset_type} {asset_id}")

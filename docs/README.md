@@ -1,6 +1,6 @@
 # AIDrama 文档中心
 
-日期：2026-05-12
+日期：2026-05-14
 
 本项目是一个面向 Jellyfish 主平台基座的工业 AI Film Engine 工作区。当前仓库可运行入口已统一为 AIDrama Studio，用于本地试制、测试和迁移验证；最终架构口径以 Starter Kit 为准。
 
@@ -11,12 +11,13 @@
 3. [AI 漫剧开源项目对比](open-source-comparison.md)：Jellyfish 主平台和各参考层的取舍。
 4. [AI 漫剧开源研究报告对比分析](ai-manjv-report-comparison-2026.md)：对比研究报告、Starter Kit、当前代码和本轮落地决策。
 5. [AI 漫剧产品分析与改进建议](ai-drama-product-review.md)：产品经理视角的项目取舍和改进优先级。
-6. [AI 漫剧测试用例分析与问题清单](ai-drama-test-analysis.md)：测试工程师视角的用例矩阵和问题记录。
-7. [架构分析与本轮工程动作](ai-drama-architecture-actions.md)：架构/工程视角的修复与后续优化。
-8. [AI 漫剧赚钱方式与落地路线](ai-drama-business-plan.md)：内容试制、B2B、账号矩阵与 90 天路线。
-9. [任务进度索引](task-progress.md)：跨会话交接时先看这里。
-10. [用户操作手册](../USER_MANUAL.md)：从配置到多集 AI 漫剧生产的完整操作路径。
-11. [AI 协作指南](../agent.md)：给后续 AI 会话使用的仓库工作规则。
+6. [AI 漫剧产品需求说明书](ai-drama-product-requirements.md)：一句话制片、模板中心、工作区、主题和生产包的 PRD。
+7. [AI 漫剧测试用例分析与问题清单](ai-drama-test-analysis.md)：测试工程师视角的用例矩阵和问题记录。
+8. [架构分析与本轮工程动作](ai-drama-architecture-actions.md)：架构/工程视角的修复与后续优化。
+9. [AI 漫剧赚钱方式与落地路线](ai-drama-business-plan.md)：内容试制、B2B、账号矩阵与 90 天路线。
+10. [任务进度索引](task-progress.md)：跨会话交接时先看这里。
+11. [用户操作手册](../USER_MANUAL.md)：从配置到多集 AI 漫剧生产的完整操作路径。
+12. [AI 协作指南](../agent.md)：给后续 AI 会话使用的仓库工作规则。
 
 ## 当前推荐
 
@@ -40,6 +41,7 @@ make down
 - 前端：`http://localhost:3014`
 - 后端 API：`http://localhost:17177/docs`
 - Film Core dry-run API：`POST http://localhost:17177/film/pipeline/run`
+- 一句话到多集漫剧 API：`POST http://localhost:17177/film/auto-drama/run`
 - 模板目录 API：`GET http://localhost:17177/film/templates`
 - 模型建议目录：`GET http://localhost:17177/film/runtime/recommendations`
 - 项目工作流状态：`GET http://localhost:17177/projects/{projectId}/workflow`
@@ -49,4 +51,4 @@ make down
 - `samples/pilot_samples/three_60_90s_pilots.yaml`：3 个 60-90 秒样片方向。
 - `samples/series_production/vertical_suspense_5ep.yaml`：5 集竖屏悬疑短漫剧蓝图，可用于批量 dry-run 验证。
 
-这些模板也会显示在 `http://localhost:3014` 首页顶部的“AI 漫剧模板中心”，可直接创建样片项目或 5 集系列草稿。
+这些模板也会显示在 `http://localhost:3014` 首页顶部的“AI 漫剧模板中心”，可直接创建样片项目或 5 集系列草稿。首页还包含“一句话生成多集 AI 漫剧”和工作区流程地图，用于从故事点直接生成系列草稿，并解释模板中心、制片入口、工作区的分工。

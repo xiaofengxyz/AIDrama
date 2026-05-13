@@ -1,6 +1,6 @@
 # AIDrama Studio 用户操作手册
 
-日期：2026-05-12
+日期：2026-05-13
 
 本手册面向 2-3 人 AI 漫剧小团队，目标是从零配置环境，到做出一部多集 AI 漫剧的可复盘生产流程。
 
@@ -38,6 +38,11 @@
 | 分镜生成失败兜底 | 已完成 | `4. Storyboard` 的 `生成分镜`，LLM JSON 异常时自动生成可编辑分镜 |
 | 无素材时自动采集图片/视频 | 已完成 | `4. Storyboard` 的 `采集图片`、`5. Motion` 的 `采集图片` / `采集视频` |
 | workflow_switch 页面可见 | 已完成 | `9. QA & Export` 的 `Workflow Switches` 面板，按钮叫 `Refresh Switches` |
+| 一句话生成多集漫剧 UI | 已完成 | 首页“一句话生成多集 AI 漫剧”，自动创建 Studio 系列 |
+| 每集生产包提取 | 已完成 | `episode_packages` 返回每集脚本、分镜、角色、场景、道具、服装、特效和 continuity locks |
+| 角色/场景/道具 Web 参考采集 | 已完成 | `3. Assets` 资产卡片链路按钮，或资产级 Web Media API |
+| 模板中心/工作区流程地图 | 已完成 | 首页“工作区流程地图”，说明模板中心、一句话制片、我的工作区各自用途 |
+| 页面主题切换 | 已完成 | 首页右上角 `Noir` / `Dailies` / `Ember` 主题按钮，持久化到本地浏览器 |
 
 结论：文档要求的工业级“可测试闭环”已经完成，且工作流状态、可编辑/可重生成意图、QA/Retry、导出兜底、模型配置隔离、工作流自动/人工停顿和文字到漫剧 dry-run 已经具备。真实出片仍需要配置模型 Key，并在 UI 的图片、视频、配音、合成步骤里实际调用模型。
 
@@ -157,6 +162,14 @@ Web 素材采集可选环境变量：
 
 不配置时，系统使用公开示例源采集少量图片/视频并下载到 `output/web_media/`。这些素材适合做试制、占位和连通性测试；正式商用发布前要替换为自有、授权或模型生成素材。
 
+页面主题不需要后端配置。首页右上角可以切换：
+
+- `Noir`：默认暗场棚拍风格。
+- `Dailies`：偏绿色监看/样片日检风格。
+- `Ember`：偏暖色剪辑间风格。
+
+主题会保存到浏览器 `localStorage`，下次打开继续生效。
+
 配置完成后启动：
 
 ```bash
@@ -180,9 +193,23 @@ curl -sS http://localhost:17177/config/info
 
 ## 4. UI 从零做一部多集 AI 漫剧
 
-### 4.0A 一键从一句话生成 dry-run 漫剧包
+### 4.0A 用首页 UI 从一句话生成多集系列
 
-如果你只有一个故事点子，还没有小说和分镜，可以先用 Auto Drama API 生成可编辑草稿：
+如果你只有一个故事点子，还没有小说和分镜，打开首页顶部“一句话生成多集 AI 漫剧”：
+
+1. 填系列标题。
+2. 输入一句故事梗概。
+3. 选择 `3 集`、`5 集` 或 `8 集`。
+4. 点击“生成系列”。
+5. 系统会自动创建一个 Studio 系列，并跳转到系列详情页。
+
+这一步会生成：
+
+- `novel_plan`：世界观、关系图、章节大纲、每集悬念。
+- `episode_packages`：每集脚本、分镜、角色、场景、道具、服装、特效和 continuity locks。
+- Studio 系列：系列卡片、单集草稿、每集分镜和资产占位。
+
+也可以用 API 生成同样的多集系列：
 
 ```bash
 curl -sS -X POST http://localhost:17177/film/auto-drama/run \
@@ -192,17 +219,21 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
     "seed_text": "女调查员接到一通来自十年前死者的电话，电话里的人知道她下一步会去哪里。",
     "target_chapters": 5,
     "backend": "dry_run",
-    "persist_project": true
+    "persist_project": true,
+    "persist_mode": "series"
   }'
 ```
 
 返回内容包含：
 
 - `novel_plan`：世界观、关系图、章节大纲、每集悬念。
+- `episode_packages`：每集脚本、分镜帧、角色描述、场景、道具、服装、特效、连续性锁定。
 - `screenplay_text`：由小说计划编译出的可拍摄剧本文本。
 - `story_graph` / `director_program` / `film_run` / `final_edit`：Film Core dry-run 结果。
-- `project`：写入 Studio 的草稿项目。
-- `next_hash`：例如 `#/project/{projectId}/step/export`，可直接跳到第 9 步验收。
+- `series` / `episodes`：写入 Studio 的系列和单集草稿。
+- `next_hash`：例如 `#/series/{seriesId}`，可直接打开系列。
+
+如果只想创建一个独立项目，把 `persist_mode` 改成 `project`。返回的 `next_hash` 会是 `#/project/{projectId}/step/export`。
 
 如果要在小说阶段停下来让制作人审大纲，可以传：
 
@@ -219,6 +250,12 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 ### 4.0 先看首页模板中心
 
 打开 `http://localhost:3014` 后，首页顶部会出现“AI 漫剧模板中心”。
+
+首页现在有三块：
+
+- 工作区流程地图：解释“模板中心”“一句话制片”“我的工作区”的职责。
+- 一句话生成多集 AI 漫剧：从故事点直接创建多集系列。
+- AI 漫剧模板中心：从已验证样片或 5 集蓝图复制项目。
 
 这里能直接看到：
 
@@ -246,6 +283,8 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 
 系列层保存的是长期资产：角色、场景、道具、服装、世界观和禁用设定。单集应该尽量引用系列资产，减少每集重新生成导致的人设漂移。
 
+如果你已经用“一句话生成系列”或“创建 5 集系列”创建过系列，可以跳过 4.1 和 4.2，直接进入 4.3 补剧本和资产。
+
 ### 4.2 创建 5 集结构
 
 在系列详情页逐集创建：
@@ -258,9 +297,56 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 | EP04 | 身份或规则揭示 | 60-90 秒 |
 | EP05 | 小闭环结尾 + 下一季钩子 | 60-90 秒 |
 
+一句话生成和系列模板会自动创建这些单集。手动创建时，建议每集先写 60-90 秒脚本，不要直接写成长篇小说段落；后续分镜和视频生成会更稳定。
+
+### 4.3 进入单集并提取脚本/分镜/资产
+
+1. 在系列详情页点击某一集。
+2. 进入 `1. Script`，确认或粘贴本集脚本。
+3. 点击“提取实体”，生成角色、场景、道具。
+4. 进入 `4. Storyboard`，点击“生成分镜”。
+5. 如果文本模型不可用或 JSON 返回不标准，系统会用 deterministic fallback 生成可编辑分镜，不会卡死制作。
+
+一句话生成的单集会提前写入：
+
+- 每集脚本。
+- 3 个基础分镜帧。
+- 角色描述。
+- 场景描述。
+- 道具。
+- 服装，当前在 Studio 资产页以道具类资产落地，并在 `episode_packages.costumes` 中保留原始类型。
+- 特效，当前在 Studio 资产页以道具类资产落地，并在 `episode_packages.special_effects` 中保留原始类型。
+
+### 4.4 采集或生成角色图片和参考视频
+
+进入单集工作台 `3. Assets`：
+
+1. 切到 `Characters`、`Scenes` 或 `Props`。
+2. 每张资产卡片底部有三个动作：
+   - `Generate`：调用配置的图片模型生成资产。
+   - 上传按钮：上传你自己的参考图。
+   - 链路按钮：从网络采集参考图片和视频。
+3. 点击链路按钮后，系统会把采集到的图片挂到该资产的 image variants，把视频挂到 motion reference。
+4. 角色资产建议先锁定全身图，再生成三视图和头像，最后进入 Motion 生成角色参考视频。
+
+API 等价操作：
+
+```bash
+curl -sS -X POST http://localhost:17177/projects/{projectId}/assets/character/{characterId}/web_media/collect \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "media_type": "both",
+    "count": 2,
+    "upload_type": "full_body",
+    "query": "夜半信号 Maya detective full body reference"
+  }'
+```
+
+正式商用前要替换为自有、授权或模型生成素材；Web 采集主要用于占位、找视觉方向、测试流程和补首帧。
+
 每集先写 3-6 个短段落。一个段落会更容易转成一个 Story Beat 和一个镜头。复杂动作拆成多个 3-5 秒镜头。
 
-### 4.3 导入或粘贴剧本
+### 4.5 导入或粘贴剧本
 
 进入某一集工作台后：
 
@@ -279,7 +365,7 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 - `[prop=evidence_phone]`：锁定道具进入 Prompt、State、Ledger、Final Edit。
 - `[costume=blue_raincoat]`：锁定服装，减少换衣漂移。
 
-### 4.4 建立角色、场景、道具、服装资产
+### 4.6 建立角色、场景、道具、服装资产
 
 按这个顺序做：
 
@@ -295,7 +381,7 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 - 场景：灯光方向、天气、主色、空间结构。
 - 道具：形状、颜色、破损位置、出现方式。
 
-### 4.5 生成分镜
+### 4.7 生成分镜
 
 进入分镜步骤：
 
@@ -310,7 +396,7 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 
 行业痛点“抽卡很辛苦”的根源是变量太多。这里的原则是每次只改变一个变量：模型、seed、参考图、运动提示或时长，不要全部一起改。
 
-### 4.6 生成图片和视频候选
+### 4.8 生成图片和视频候选
 
 低成本策略：
 
@@ -330,7 +416,7 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 4. 点击 `加入生成队列 (Ctrl+Enter)`。如果图片还在上传，页面会提示等待上传完成；如果后端返回错误，会显示具体 detail。
 5. `角色驱动 (R2V)`：如果没有 Motion Reference，点击 `采集视频` 自动采集几个参考视频，先填入角色槽位做连通性验证。
 
-### 4.7 QA & Export 第 9 步
+### 4.9 QA & Export 第 9 步
 
 进入工作台第 9 步：
 
@@ -367,7 +453,7 @@ curl -sS http://localhost:17177/projects/{projectId}/workflow
 
 工作流会显示 9 个生产阶段：Novel Engine、Asset Pipeline、Storyboard、Image Runtime、Video Runtime、Voice Runtime、Composition、QA & Retry、Export。每个阶段都有状态、阻塞项、下一步动作和模型建议。
 
-### 4.8 合成导出
+### 4.10 合成导出
 
 当每个镜头都有选中的视频候选：
 
@@ -385,7 +471,7 @@ curl -sS http://localhost:17177/projects/{projectId}/workflow
 
 所以，缺素材时点击 `Start Render` 也能得到可恢复产物；真正成片仍需要先补齐每个镜头的 selected video。
 
-### 4.9 推荐最快路径：从模板到 5 集样片
+### 4.11 推荐最快路径：从模板到 5 集样片
 
 1. 打开 `http://localhost:3014`。
 2. 在“AI 漫剧模板中心”点击 `创建 5 集系列`。

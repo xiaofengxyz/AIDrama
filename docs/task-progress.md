@@ -1,6 +1,6 @@
 # 任务进度索引
 
-日期：2026-05-12
+日期：2026-05-14
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
@@ -13,6 +13,75 @@
 - `external/` 仅作为被忽略的上游参考区，不参与提交和构建。
 
 ## 本轮执行计划与状态
+
+### 2026-05-14 重启恢复：PRD、最终验证与推送
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 重启后审计 | 已完成 | 复核 git dirty 工作树、`docs/task-progress.md`、Auto Drama、生产包、Web Media、主题、首页流程和测试文件 | `git status`、`rg`、读取关键文件 |
+| 2. 产品 PRD 与架构同步 | 已完成 | 新增产品需求说明书，更新文档中心、架构动作和本进度索引 | 文档复核 |
+| 3. 实现缺口补齐 | 已完成 | 对审计中发现的注释、类型、测试或运行问题做小范围补齐 | `compileall`、`tsc`、单测 |
+| 4. 运行验证 | 已完成 | 重启/重建服务，跑后端、前端和 Docker 冒烟 | pytest、vitest、curl、docker |
+| 5. 清理提交推送 | 进行中 | 检查冲突、diff check、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
+
+当前重启后审计结论：
+
+- 上次会话已把核心代码写入工作树，但尚未完成最终运行验证、提交和推送。
+- 需求 1 的五个缺口均已有对应实现：一句话制片 UI、资产级网络图片/视频采集、首页流程地图、主题切换、每集生产包。
+- 需求 2 缺少独立 PRD 文件，本轮新增 `docs/ai-drama-product-requirements.md`。
+- 需求 3 的实现需要通过本轮测试确认，不在未验证状态下提交。
+- 需求 4 的测试用例文档已有 TC-058 至 TC-063，本轮继续补充验证记录。
+- 需求 5 需要在本次会话完成服务运行、测试、工作区清理、提交和 push。
+
+当前补齐记录：
+
+- 新增 `docs/ai-drama-product-requirements.md`，覆盖产品定位、端到端流程、功能需求、信息架构、接口、非功能需求和验收矩阵。
+- 更新 `docs/README.md`，把 PRD 纳入文档中心阅读顺序。
+- 更新 `docs/ai-drama-architecture-actions.md`，记录生产包提取、资产级 Web Media、首页制片入口和主题切换的架构决策。
+- 补充新前端入口与主题模块的 JSDoc/字段注释，减少重启恢复后的接手成本。
+
+本轮重启恢复验证记录：
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen`：通过。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `python3 -m pytest tests/test_episode_production_extraction.py tests/test_auto_drama_pipeline.py tests/test_web_media_collector.py -q -s`：通过，7 passed，1 skipped。
+- `cd frontend && npm run test -- workflow-api theme-presets OneSentenceDramaPanel`：通过已匹配 API/主题测试，2 个测试文件，8 个测试。
+- `cd frontend && npm run test`：通过，12 个测试文件，123 个测试。
+- `cd frontend && npm run test:ui`：通过，4 个测试文件，50 个测试；错误态用例保留预期 stderr。
+- 宿主 `python3 -m pytest -q -s tests`：collection 阶段被宿主缺 `dashscope` SDK 挡住；已进入 Docker 后端容器补跑完整测试。
+- `docker compose up -d --build --remove-orphans`：通过，`aidrama-backend`、`aidrama-frontend` 已重建并启动。
+- `curl --noproxy '*' -sSI http://127.0.0.1:3014/`：HTTP 200。
+- `GET http://127.0.0.1:17177/film/auto-drama/run`：HTTP 200，返回 `persist_mode=series` 示例。
+- `GET http://127.0.0.1:17177/film/templates`：HTTP 200，返回 3 个样片与系列蓝图目录。
+- `POST http://127.0.0.1:17177/film/auto-drama/run` dry-run 冒烟：HTTP 200，返回 `novel_plan` 和 `episode_packages`。
+- `docker cp tests aidrama-backend:/app/tests && docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，174 passed。
+
+### 2026-05-13 制作人一键漫剧、资产 Web 采集、主题与分集生产包
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 计划与现状复核 | 已完成 | 复核 AGENTS、进度索引、Auto Drama、Web Media、模板中心、工作区、主题、分集/分镜/资产提取缺口 | `rg`、读取前后端关键模块 |
+| 2. 产品链路实现 | 已完成 | 补可见的一句话生成多集漫剧入口、每集生产包、资产级 Web 图片/视频采集、工作区/模板流程地图、主题切换 | 后端/前端单测 |
+| 3. 测试工程 | 已完成 | 补后端 API、Pipeline、前端 API/主题/面板测试 | pytest、vitest、tsc |
+| 4. 文档与手册 | 已完成 | 更新测试用例文档、用户操作手册、任务进度索引 | 文档复核 |
+| 5. 运行验证、清理、提交推送 | 待执行 | 重建运行、冒烟测试、冲突检查、提交并 push 必要修改 | docker、curl、git |
+
+本轮初步结论：
+
+- “一句话生成小说/多集漫剧”已有 `/film/auto-drama/run` API，但首页缺少制作人可见入口，且默认只持久化为单项目，不利于多集连续生产。
+- Web 素材采集已有项目级 `/projects/{id}/web_media/collect`，但资产卡片没有角色/场景/道具级“采集参考图/参考视频”入口。
+- 模板中心和工作区都已存在，但首页缺少清晰的流程地图：模板中心用于从验证样片/系列蓝图开始，工作区用于管理正在制作的项目和系列。
+- 每集脚本、分镜、角色、道具、服装、特效需要成为可返回、可测试、可落盘的生产包，而不是只隐藏在 dry-run metadata 里。
+- 页面主题目前是硬编码暗色科技风，需要通过 CSS 变量和可持久化主题开关扩展。
+
+本轮阶段性验证记录：
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen`：通过。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `python3 -m pytest tests/test_episode_production_extraction.py tests/test_auto_drama_pipeline.py tests/test_web_media_collector.py -q -s`：通过，7 passed，1 skipped（宿主缺 DashScope 时 Pipeline 挂图测试跳过）。
+- `python3 -m pytest tests/test_film_pipeline_api.py -q -s`：宿主 14 skipped（宿主缺 DashScope，保留容器复测）。
+- `cd frontend && npm run test -- workflow-api theme-presets OneSentenceDramaPanel`：通过已匹配 API/主题测试，2 个测试文件，8 个测试。
+- `cd frontend && npm run test:ui -- OneSentenceDramaPanel`：通过，1 个测试文件，1 个测试。
 
 ### 2026-05-12 分镜/Motion 故障修复、Workflow Switch 可视化与 Web 素材采集
 

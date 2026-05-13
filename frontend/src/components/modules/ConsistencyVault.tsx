@@ -35,6 +35,7 @@ export default function ConsistencyVault() {
     // Upload modal state
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [uploadTarget, setUploadTarget] = useState<{ id: string; type: string; name: string; description: string } | null>(null);
+    const [collectingAssetId, setCollectingAssetId] = useState<string | null>(null);
 
     // Derive selected asset from currentProject
     const selectedAsset = currentProject ? (() => {
@@ -352,6 +353,29 @@ export default function ConsistencyVault() {
         setUploadTarget(null);
     };
 
+    // Collects reference images/videos for one asset and refreshes the project
+    // after the backend attaches media to the appropriate asset slots.
+    const handleCollectAssetWebMedia = async (asset: any, type: "character" | "scene" | "prop") => {
+        if (!currentProject) return;
+        setCollectingAssetId(asset.id);
+        try {
+            const result = await api.collectAssetWebMedia(currentProject.id, type, asset.id, {
+                media_type: "both",
+                count: 2,
+                query: `${currentProject.title} ${asset.name} ${asset.description || ""}`,
+                upload_type: type === "character" ? "full_body" : "image",
+            });
+            if (result.project) {
+                updateProject(currentProject.id, result.project);
+            }
+        } catch (error: any) {
+            console.error("Failed to collect asset web media:", error);
+            alert(`采集参考素材失败: ${error.message || "网络错误"}`);
+        } finally {
+            setCollectingAssetId(null);
+        }
+    };
+
     const assets = activeTab === "character" ? currentProject?.characters :
         activeTab === "scene" ? currentProject?.scenes :
             activeTab === "prop" ? currentProject?.props : [];
@@ -426,6 +450,8 @@ export default function ConsistencyVault() {
                                 }}
                                 onDelete={() => handleDeleteAsset(asset.id, activeTab)}
                                 onUpload={() => handleOpenUploadModal(asset, activeTab)}
+                                onCollectWeb={() => handleCollectAssetWebMedia(asset, activeTab)}
+                                isCollectingWeb={collectingAssetId === asset.id}
                             />
                         ))}
                         {/* Create New Asset Button */}
@@ -826,7 +852,7 @@ function ImageWithRetry({ src, alt, className }: { src: string, alt: string, cla
     );
 }
 
-function AssetCard({ asset, type, isGenerating, onGenerate, onToggleLock, onClick, onDelete, onUpload }: any) {
+function AssetCard({ asset, type, isGenerating, onGenerate, onToggleLock, onClick, onDelete, onUpload, onCollectWeb, isCollectingWeb }: any) {
     const isLocked = asset.locked || false;
     const currentProject = useProjectStore((state) => state.currentProject);
     const updateProject = useProjectStore((state) => state.updateProject);
@@ -878,10 +904,10 @@ function AssetCard({ asset, type, isGenerating, onGenerate, onToggleLock, onClic
             )}
 
             {/* Loading Overlay */}
-            {isGenerating && (
+            {(isGenerating || isCollectingWeb) && (
                 <div className="absolute inset-0 z-20 bg-black/60 backdrop-blur-sm flex items-center justify-center flex-col gap-2">
                     <RefreshCw className="animate-spin text-primary" size={32} />
-                    <span className="text-xs font-mono text-primary">Generating...</span>
+                    <span className="text-xs font-mono text-primary">{isCollectingWeb ? "Collecting..." : "Generating..."}</span>
                 </div>
             )}
 
@@ -942,6 +968,17 @@ function AssetCard({ asset, type, isGenerating, onGenerate, onToggleLock, onClic
                         title="上传图片"
                     >
                         <Upload size={14} />
+                    </button>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onCollectWeb?.();
+                        }}
+                        disabled={isCollectingWeb}
+                        className="p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white cursor-pointer transition-colors disabled:opacity-50"
+                        title="从网络采集参考图和视频"
+                    >
+                        <LinkIcon size={14} className={isCollectingWeb ? "animate-pulse" : ""} />
                     </button>
                 </div>
             </div>

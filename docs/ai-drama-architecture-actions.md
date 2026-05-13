@@ -1,6 +1,6 @@
 # 架构分析与本轮工程动作
 
-日期：2026-05-12
+日期：2026-05-14
 
 ## 当前架构判断
 
@@ -81,6 +81,23 @@
 - `samples/series_production/vertical_suspense_5ep.yaml` 提供 5 集悬疑短漫剧模板，覆盖主角、场景、道具、服装、连续性锁和每集剧本。
 - `samples/pilot_samples/three_60_90s_pilots.yaml` 提供 3 个 60-90 秒题材样片模板，用于先做题材验证再扩成 5 集。
 - `tests/test_series_production_blueprint.py` 覆盖系列蓝图加载、批量编排、共享 registry dry-run、重复集号拒绝和 3 个样片 Story Graph 可用性。
+
+## 本次制作人一键漫剧与分集生产包补齐
+
+- `src/film_engine/production_extraction.py` 新增 `EpisodeProductionExtractor`、`EpisodeProductionPackage`、`ExtractedProductionAsset` 和 `ExtractedStoryboardFrame`，把小说计划拆成每集脚本、三段式分镜、角色、场景、道具、服装、特效和 continuity locks。
+- `src/film_engine/auto_drama.py` 在 Auto Drama dry-run 中接入生产包提取，确保 `/film/auto-drama/run` 不只返回 Film Core 汇总，也返回可交付、可测试的分集制作资料。
+- `src/apps/comic_gen/api.py` 支持 `persist_mode=series`，把一句话生成结果落盘为 Studio 系列和多个单集项目；单集项目继承对应 episode package 的 frames 和资产占位。
+- `src/apps/comic_gen/api.py` 增加资产级 `POST /projects/{id}/assets/{type}/{assetId}/web_media/collect`，让角色、场景、道具可以直接采集网络参考图片和参考视频，不再只能项目级挂分镜。
+- `frontend/src/components/modules/OneSentenceDramaPanel.tsx` 新增首页制作人入口，默认 dry-run、默认系列落盘、成功后跳转系列页。
+- `frontend/src/app/page.tsx` 新增工作区流程地图和主题切换器，把“模板中心”“一句话制片”“我的工作区”的职责放到页面首屏。
+- `frontend/src/lib/themePresets.ts`、`frontend/src/components/canvas/CreativeCanvas.tsx`、`frontend/src/app/globals.css` 通过主题预设和 CSS variables 支撑 `Noir`、`Dailies`、`Ember` 三套可持久化页面风格。
+- `tests/test_episode_production_extraction.py`、`frontend/src/components/modules/__tests__/OneSentenceDramaPanel.spec.tsx`、`frontend/src/__tests__/theme-presets.test.ts` 覆盖分集生产包、一句话 UI 和主题预设。
+
+架构决策：
+
+- 生产包提取放在 Film Core，不放在页面组件中，避免后续迁移 Jellyfish 时丢失核心流程。
+- 服装和特效先以 Studio prop records 进入当前 UI，保持落盘兼容；Film Core 层仍保留独立 `costumes` 与 `special_effects` 字段，后续可升级为专门资产表。
+- 网络素材采集保持可选参考，不作为真实生成 runtime；这样离线测试、dry-run 和缺外部网络时仍能验证主流程。
 
 ## 后续架构优化建议
 

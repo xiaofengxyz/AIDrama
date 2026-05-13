@@ -193,10 +193,37 @@ def test_auto_drama_api_generates_novel_and_studio_project(isolated_client):
     data = response.json()
     assert data["status"] == "completed"
     assert len(data["novel_plan"]["chapters"]) == 2
+    assert len(data["episode_packages"]) == 2
+    assert data["episode_packages"][0]["storyboard_frames"]
+    assert data["episode_packages"][0]["costumes"]
+    assert data["episode_packages"][0]["special_effects"]
     assert data["film_run"]["summary"]["accepted_shots"] >= 1
     assert data["final_edit"]["clips"]
     assert data["project"]["title"] == "Auto Night Signal"
     assert data["next_hash"].endswith("/step/export")
+
+
+def test_auto_drama_api_can_persist_multi_episode_series(isolated_client):
+    """One-sentence producer flow should create a Studio series with episode packages."""
+    response = isolated_client.post(
+        "/film/auto-drama/run",
+        json={
+            "title": "Series Night Signal",
+            "seed_text": "Maya: The dead customer's phone rings again and a hidden proof appears.",
+            "target_chapters": 3,
+            "persist_project": True,
+            "persist_mode": "series",
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["series"]["title"] == "Series Night Signal"
+    assert len(data["episodes"]) == 3
+    assert len(data["episode_packages"]) == 3
+    assert data["episodes"][0]["frames"]
+    assert data["episodes"][0]["props"]
+    assert data["next_hash"].startswith("#/series/")
 
 
 def test_auto_drama_api_respects_manual_prompt_gate(isolated_client):
@@ -217,6 +244,7 @@ def test_auto_drama_api_respects_manual_prompt_gate(isolated_client):
     assert data["status"] == "waiting_for_user"
     assert data["waiting_for_stage"] == "stage1_novel_engine"
     assert data["novel_plan"]["chapters"]
+    assert data["episode_packages"]
     assert data["final_edit"] is None
 
 
@@ -296,3 +324,55 @@ def test_export_api_falls_back_to_render_package_without_selected_videos(isolate
     assert data["url"].startswith("export/")
     assert data["workflow_state"]["summary"]["recommended_render_mode"] == "render_package"
     assert any("No final mp4" in warning for warning in data["warnings"])
+
+
+def test_asset_web_media_api_attaches_character_image_and_video(isolated_client, monkeypatch):
+    """Asset cards should be able to collect web reference images and motion videos."""
+    project = api_module.pipeline.create_project(
+        "Asset Web Media",
+        "INT. ROOM\nMaya: The phone rang.",
+        True,
+    )
+    project = api_module.pipeline.add_character(project.id, "Maya", "short hair detective")
+
+    monkeypatch.setattr(
+        api_module.web_media_collector,
+        "collect",
+        lambda **_kwargs: [
+            {
+                "id": "web-image",
+                "type": "image",
+                "url": "web_media/images/maya.png",
+                "remote_url": "https://example.com/maya.png",
+                "title": "Maya image",
+                "provider": "example.com",
+                "query": "maya",
+                "license": "test",
+                "downloaded": True,
+            },
+            {
+                "id": "web-video",
+                "type": "video",
+                "url": "web_media/videos/maya.mp4",
+                "remote_url": "https://example.com/maya.mp4",
+                "title": "Maya video",
+                "provider": "example.com",
+                "query": "maya",
+                "license": "test",
+                "downloaded": True,
+            },
+        ],
+    )
+
+    character_id = project.characters[0].id
+    response = isolated_client.post(
+        f"/projects/{project.id}/assets/character/{character_id}/web_media/collect",
+        json={"media_type": "both", "count": 2, "upload_type": "full_body"},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    character = data["project"]["characters"][0]
+    assert data["attached_count"] == 2
+    assert character["full_body_asset"]["variants"][0]["url"] == "web_media/images/maya.png"
+    assert character["full_body"]["video_variants"][0]["url"] == "web_media/videos/maya.mp4"

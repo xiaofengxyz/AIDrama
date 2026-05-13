@@ -1,6 +1,6 @@
 # AI 漫剧测试用例分析与问题清单
 
-日期：2026-05-12
+日期：2026-05-13
 
 ## 测试目标
 
@@ -53,6 +53,11 @@
 | BUG-007 | P1 | `生成分镜` 遇到非标准 LLM JSON 或无实体上下文时会阻断制作 | 制作人无法继续编辑分镜、进入图片/视频阶段 | 已修复：JSON 多候选解析、轻量修复、deterministic fallback、缺省场景/角色/道具补齐 |
 | BUG-008 | P1 | Motion 页无首帧图、无参考视频或上传未完成时提交体验失败 | I2V/R2V 无法从空项目快速验证链路，错误提示不清楚 | 已修复：`采集图片`、`采集视频`、上传等待和后端 detail 透传 |
 | BUG-009 | P2 | `workflow_switch` 只有文档/API，没有制作人页面可见入口 | 用户不知道自动/人工开关在哪、按钮叫什么 | 已修复：`9. QA & Export` 新增 `Workflow Switches` 面板和 `Refresh Switches` 按钮 |
+| BUG-010 | P1 | 一句话生成小说/漫剧只有 API，没有首页制作人入口 | 制作人无法从“一个点子”直接创建多集系列 | 已修复：首页新增“一句话生成多集 AI 漫剧”，默认 `persist_mode=series` |
+| BUG-011 | P1 | Auto Drama 没有显式每集生产包 | 每集脚本、分镜、角色、道具、服装、特效难以验收和交接 | 已修复：新增 `episode_packages`，覆盖 script、storyboard、assets、costumes、special effects、locks |
+| BUG-012 | P1 | Web 采集不能直接挂到角色/场景/道具资产 | 角色参考图和 motion reference 仍需手动找素材/上传 | 已修复：新增资产级 Web Media API 与 `3. Assets` 卡片入口 |
+| BUG-013 | P2 | 模板中心和工作区概念不清晰 | 新用户不知道先用模板、一句话制片还是项目卡片 | 已修复：首页新增工作区流程地图 |
+| BUG-014 | P2 | 页面背景和风格不可切换 | 长时间生产缺少可读性和品牌风格选择 | 已修复：CSS 变量主题和 `Noir` / `Dailies` / `Ember` 持久化切换 |
 
 ## 回归建议
 
@@ -124,6 +129,12 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-055 | Web 视频采集 | Motion R2V 无参考视频时点击 `采集视频` | 返回 3 个可选参考视频并填入卡司槽位 |
 | TC-056 | Motion 润色兜底 | `/video/polish_prompt` 失败或返回空 | 页面显示本地双语兜底提示词，可点击 `应用` |
 | TC-057 | workflow_switch 可见化 | 进入 `9. QA & Export` | `Workflow Switches` 面板展示 00-09 模块、auto/manual、manual gates 和 `Refresh Switches` |
+| TC-058 | 一句话 UI | 首页点击“一句话生成多集 AI 漫剧”的 `生成系列` | 调用 `/film/auto-drama/run`，payload 含 `persist_mode=series`，成功后跳转系列页 |
+| TC-059 | 每集生产包 | Auto Drama 输出 `episode_packages` | 每集包含脚本、3 个分镜帧、角色、场景、道具、服装、特效和 continuity locks |
+| TC-060 | Auto Drama 系列落盘 | `persist_mode=series` | 创建 1 个系列、N 个单集草稿，每集带 frames 和资产占位 |
+| TC-061 | 资产级 Web 采集 | 调用 `/projects/{id}/assets/{type}/{assetId}/web_media/collect` | 图片进入 image variants，视频进入 motion reference 或 asset video list |
+| TC-062 | 页面主题 | 切换 `Noir` / `Dailies` / `Ember` | CSS 变量、Canvas 背景和按钮强调色变化，并写入 localStorage |
+| TC-063 | 首页流程地图 | 打开工作区首页 | 显示模板中心、一句话制片、我的工作区三条路径和用途 |
 
 ## 本次九阶段可视化新增自动化测试
 
@@ -140,9 +151,12 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | `tests/test_model_runtime_config.py` | 统一模型配置层优先级、base url 解析、密钥不泄露 |
 | `tests/test_workflow_prompt_switches.py` | 00-09 prompt 开关解析、自动执行计划、人工停顿计划 |
 | `tests/test_auto_drama_pipeline.py` | Novel Engine、文字到 dry-run 漫剧包、人工门控停顿 |
+| `tests/test_episode_production_extraction.py` | 每集生产包、脚本/分镜/角色/道具/服装/特效提取 |
 | `tests/test_storyboard_resilience.py` | 分镜 JSON 容错、fallback 数据可编辑、草稿实体补齐 |
 | `tests/test_web_media_collector.py` | Web 图片/视频采集下载、网络失败兜底、分镜挂图 |
 | `frontend/src/__tests__/workflow-switches-api.test.ts` | `Workflow Switches` 页面所需 `/film/workflow/prompts` API client |
+| `frontend/src/__tests__/theme-presets.test.ts` | 主题预设、非法主题 fallback、Canvas 色值 |
+| `frontend/src/components/modules/__tests__/OneSentenceDramaPanel.spec.tsx` | 一句话制片 UI 调用 Auto Drama 系列落盘 |
 
 新增验收命令：
 
@@ -154,5 +168,23 @@ python3 -m pytest tests/test_film_pipeline_api.py tests/test_film_production_pip
 python3 -m pytest tests/test_series_production_blueprint.py -q -s
 python3 -m pytest tests/test_film_workflow.py -q -s
 python3 -m pytest tests/test_model_runtime_config.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py -q -s
+python3 -m pytest tests/test_episode_production_extraction.py -q -s
 python3 -m pytest tests/test_storyboard_resilience.py tests/test_web_media_collector.py -q -s
 ```
+
+## 2026-05-14 重启恢复验证记录
+
+| 验证项 | 结果 |
+|---|---|
+| Python 编译 | `python3 -m compileall -q src/film_engine src/apps/comic_gen` 通过 |
+| TypeScript | `cd frontend && npx tsc --noEmit --pretty false` 通过 |
+| 后端核心回归 | `tests/test_episode_production_extraction.py tests/test_auto_drama_pipeline.py tests/test_web_media_collector.py` 通过，7 passed，1 skipped |
+| 前端全量 vitest | `cd frontend && npm run test` 通过，12 files，123 tests |
+| 前端 UI vitest | `cd frontend && npm run test:ui` 通过，4 files，50 tests |
+| Docker 重建启动 | `docker compose up -d --build --remove-orphans` 通过 |
+| 首页冒烟 | `curl --noproxy '*' -sSI http://127.0.0.1:3014/` 返回 HTTP 200 |
+| Auto Drama API 冒烟 | `GET /film/auto-drama/run` 与 dry-run `POST /film/auto-drama/run` 返回 HTTP 200，包含 `episode_packages` |
+| 模板目录冒烟 | `GET /film/templates` 返回 HTTP 200，包含样片和系列蓝图 |
+| 容器后端全量测试 | `docker compose exec -T backend python -m pytest -q -s /app/tests` 通过，174 passed |
+
+备注：宿主机直接跑 `python3 -m pytest -q -s tests` 时，collection 阶段被本机缺少 `dashscope` SDK 阻断；Docker 后端容器已补齐依赖并完成全量测试。

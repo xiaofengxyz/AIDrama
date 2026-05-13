@@ -15,8 +15,11 @@ import logging
 import traceback
 from .pipeline import ComicGenPipeline
 from .models import (
+    AssetUnit,
     Character,
     GenerationStatus,
+    ImageAsset,
+    ImageVariant,
     PromptConfig,
     Prop,
     ProviderBackend,
@@ -26,6 +29,7 @@ from .models import (
     Series,
     StoryboardFrame,
     VideoTask,
+    VideoVariant,
 )
 from .llm import ScriptProcessor, DEFAULT_STORYBOARD_POLISH_PROMPT, DEFAULT_VIDEO_POLISH_PROMPT, DEFAULT_R2V_POLISH_PROMPT
 from .web_media import WebMediaCollector
@@ -37,6 +41,7 @@ from ...film_engine import (
     CharacterAsset as FilmCharacterAsset,
     CharacterRegistry as FilmCharacterRegistry,
     CostumeAsset as FilmCostumeAsset,
+    EpisodeProductionPackage,
     FilmProductionPipeline,
     FilmTemplateCatalogLoader,
     RenderPackageExporter,
@@ -232,6 +237,10 @@ class AutoDramaRunRequest(BaseModel):
     max_attempts: int = Field(2, ge=1, le=8)
     min_score: float = Field(0.82, ge=0.0, le=1.0)
     persist_project: bool = True
+    persist_mode: str = Field(
+        "project",
+        description="project creates one Studio project; series creates one multi-episode Studio series.",
+    )
     auto_overrides: Dict[str, bool] = Field(default_factory=dict)
 
 
@@ -275,6 +284,18 @@ class CollectWebMediaRequest(BaseModel):
     )
 
 
+class CollectAssetWebMediaRequest(BaseModel):
+    """Collect and attach public web media directly to one Studio asset."""
+
+    media_type: str = Field("image", description="image, video, or both")
+    count: int = Field(2, ge=1, le=6)
+    query: Optional[str] = None
+    upload_type: str = Field(
+        "full_body",
+        description="For characters: full_body, head_shot, or three_views. Scenes/props use image.",
+    )
+
+
 def _persist_project_workflow(script: Script, film_summary: Optional[Dict[str, Any]] = None):
     """Evaluate and persist one project's workflow state for recovery."""
     state = evaluate_project_workflow(script, film_summary=film_summary)
@@ -291,6 +312,123 @@ def _default_web_media_query(script: Script) -> str:
     source = " ".join([script.title, frame_text, script.original_text[:240]])
     source = " ".join(source.split())
     return source[:120] or "cinematic AI drama storyboard"
+
+
+def _find_project_asset(script: Script, asset_type: str, asset_id: str):
+    """Find a project asset by type for media attachment endpoints."""
+    if asset_type == "character":
+        return next((asset for asset in script.characters if asset.id == asset_id), None)
+    if asset_type == "scene":
+        return next((asset for asset in script.scenes if asset.id == asset_id), None)
+    if asset_type == "prop":
+        return next((asset for asset in script.props if asset.id == asset_id), None)
+    return None
+
+
+def _default_asset_media_query(script: Script, asset_type: str, asset) -> str:
+    """Build a search query that is specific enough for references."""
+    if not asset:
+        return _default_web_media_query(script)
+    name = getattr(asset, "name", "")
+    description = getattr(asset, "description", "")
+    if asset_type == "character":
+        return f"{script.title} character reference {name} {description}"[:120]
+    if asset_type == "scene":
+        return f"{script.title} cinematic location reference {name} {description}"[:120]
+    return f"{script.title} prop costume visual reference {name} {description}"[:120]
+
+
+def _ensure_character_asset_unit(character: Character, upload_type: str) -> AssetUnit:
+    """Return the character AssetUnit matching an image/video reference slot."""
+    if upload_type == "head_shot":
+        if character.head_shot is None:
+            character.head_shot = AssetUnit()
+        return character.head_shot
+    if character.full_body is None:
+        character.full_body = AssetUnit()
+    return character.full_body
+
+
+def _attach_video_item_to_asset(
+    script: Script,
+    asset_type: str,
+    asset,
+    item: Dict[str, Any],
+    upload_type: str,
+) -> None:
+    """Attach one collected video as a completed reusable motion reference."""
+    video_url = str(item.get("url") or item.get("remote_url") or "")
+    if not video_url:
+        return
+
+    prompt = f"Collected web motion reference for {getattr(asset, 'name', 'asset')}: {item.get('query', '')}"
+    if asset_type == "character":
+        unit = _ensure_character_asset_unit(asset, upload_type)
+        video = VideoVariant(
+            id=f"web_video_{uuid.uuid4().hex[:8]}",
+            url=video_url,
+            prompt_used=prompt,
+            source_image_id=None,
+        )
+        unit.video_variants.append(video)
+        unit.selected_video_id = video.id
+        unit.video_prompt = prompt
+        unit.video_updated_at = time.time()
+        return
+
+    image_url = getattr(asset, "image_url", None) or ""
+    task = VideoTask(
+        id=f"web_video_{uuid.uuid4().hex[:8]}",
+        project_id=script.id,
+        asset_id=asset.id,
+        image_url=image_url,
+        prompt=prompt,
+        status="completed",
+        video_url=video_url,
+        duration=5,
+        generate_audio=False,
+        model="web-media-reference",
+        generation_mode="reference",
+    )
+    asset.video_assets.append(task)
+    script.video_tasks.append(task)
+
+
+def _attach_web_media_to_asset(
+    script: Script,
+    asset_type: str,
+    asset_id: str,
+    items: List[Dict[str, Any]],
+    upload_type: str,
+) -> int:
+    """Attach collected image/video items to a character, scene or prop."""
+    asset = _find_project_asset(script, asset_type, asset_id)
+    if not asset:
+        raise ValueError(f"{asset_type} asset not found: {asset_id}")
+
+    attached_count = 0
+    image_upload_type = upload_type if asset_type == "character" else "image"
+    for item in items:
+        item_type = item.get("type")
+        media_url = str(item.get("url") or item.get("remote_url") or "")
+        if item_type == "image" and media_url:
+            pipeline.add_uploaded_asset_variant(
+                script.id,
+                asset_type,
+                asset_id,
+                image_upload_type,
+                media_url,
+                description=getattr(asset, "description", None),
+            )
+            attached_count += 1
+        elif item_type == "video" and media_url:
+            _attach_video_item_to_asset(script, asset_type, asset, item, image_upload_type)
+            attached_count += 1
+
+    script.updated_at = time.time()
+    pipeline.scripts[script.id] = script
+    pipeline._save_data()
+    return attached_count
 
 
 def _first_reference_image(reference_images: List[str]) -> Optional[str]:
@@ -406,6 +544,10 @@ def _instantiate_series_blueprint(
 def _persist_auto_drama_project(auto_run) -> Script:
     """Copy auto-drama dry-run artifacts into an editable Studio project."""
     project = pipeline.create_project(auto_run.title, auto_run.screenplay_text, True)
+    if auto_run.episode_packages:
+        _apply_episode_packages_to_project(project, auto_run.episode_packages)
+        return project
+
     production_run = auto_run.production_run
     if not production_run:
         return project
@@ -488,6 +630,169 @@ def _persist_auto_drama_project(auto_run) -> Script:
     pipeline.scripts[project.id] = project
     pipeline._save_data()
     return project
+
+
+def _studio_character_from_extracted(asset) -> Character:
+    """Convert an extracted production character into a locked Studio asset."""
+    return Character(
+        id=asset.id,
+        name=asset.name,
+        description=asset.description,
+        clothing=asset.metadata.get("default_costume"),
+        locked=True,
+        status=GenerationStatus.PENDING,
+    )
+
+
+def _studio_scene_from_extracted(asset) -> Scene:
+    """Convert an extracted production scene into a locked Studio scene."""
+    return Scene(
+        id=asset.id,
+        name=asset.name,
+        description=asset.description,
+        lighting_mood=asset.continuity_lock,
+        locked=True,
+        status=GenerationStatus.PENDING,
+    )
+
+
+def _studio_prop_from_extracted(asset, prefix: str = "") -> Prop:
+    """Convert props, costumes and special effects into Studio prop records."""
+    description = asset.description
+    if prefix:
+        description = f"{prefix}: {description}"
+    return Prop(
+        id=asset.id,
+        name=asset.name,
+        description=description,
+        locked=True,
+        status=GenerationStatus.PENDING,
+    )
+
+
+def _dedupe_assets(items: List[Any]) -> List[Any]:
+    """Keep first-seen extracted assets stable across multiple episodes."""
+    seen = set()
+    deduped = []
+    for item in items:
+        if item.id in seen:
+            continue
+        seen.add(item.id)
+        deduped.append(item)
+    return deduped
+
+
+def _apply_episode_packages_to_project(
+    project: Script,
+    packages: List[EpisodeProductionPackage],
+) -> Script:
+    """Persist episode package assets and storyboard frames into one Studio project."""
+    characters = _dedupe_assets([asset for package in packages for asset in package.characters])
+    scenes = _dedupe_assets([asset for package in packages for asset in package.scenes])
+    props = _dedupe_assets([asset for package in packages for asset in package.props])
+    costumes = _dedupe_assets([asset for package in packages for asset in package.costumes])
+    effects = _dedupe_assets([asset for package in packages for asset in package.special_effects])
+
+    project.characters = [_studio_character_from_extracted(asset) for asset in characters]
+    project.scenes = [_studio_scene_from_extracted(asset) for asset in scenes]
+    project.props = [
+        *[_studio_prop_from_extracted(asset) for asset in props],
+        *[_studio_prop_from_extracted(asset, "Costume asset") for asset in costumes],
+        *[_studio_prop_from_extracted(asset, "Special effect asset") for asset in effects],
+    ]
+
+    known_scene_ids = {scene.id for scene in project.scenes}
+    known_character_ids = {character.id for character in project.characters}
+    known_prop_ids = {prop.id for prop in project.props}
+    fallback_scene_id = project.scenes[0].id if project.scenes else ""
+    project.frames = []
+    for package in packages:
+        for frame in package.storyboard_frames:
+            prop_ids = [
+                asset_id
+                for asset_id in [
+                    *frame.prop_refs,
+                    *frame.costume_refs,
+                    *frame.special_effect_refs,
+                ]
+                if asset_id in known_prop_ids
+            ]
+            project.frames.append(
+                StoryboardFrame(
+                    id=frame.frame_id,
+                    scene_id=frame.scene_ref if frame.scene_ref in known_scene_ids else fallback_scene_id,
+                    character_ids=[
+                        character_id
+                        for character_id in frame.character_refs
+                        if character_id in known_character_ids
+                    ],
+                    prop_ids=prop_ids,
+                    action_description=frame.action_description,
+                    dialogue=frame.dialogue or None,
+                    speaker=project.characters[0].name if frame.dialogue and project.characters else None,
+                    camera_angle=frame.camera_angle,
+                    camera_movement=frame.camera_movement,
+                    atmosphere=frame.visual_atmosphere,
+                    visual_atmosphere=frame.visual_atmosphere,
+                    image_prompt=frame.image_prompt,
+                    video_prompt=frame.video_prompt,
+                    status=GenerationStatus.PENDING,
+                )
+            )
+
+    project.updated_at = time.time()
+    pipeline.scripts[project.id] = project
+    pipeline._save_data()
+    return project
+
+
+def _persist_auto_drama_series(auto_run) -> Tuple[Series, List[Script]]:
+    """Copy auto-drama episode packages into a multi-episode Studio series."""
+    if not auto_run.episode_packages:
+        raise ValueError("Auto Drama series persistence requires episode production packages")
+
+    description = ""
+    if auto_run.novel_plan:
+        description = auto_run.novel_plan.premise
+    series = pipeline.create_series(auto_run.title, description)
+
+    all_characters = _dedupe_assets(
+        [asset for package in auto_run.episode_packages for asset in package.characters]
+    )
+    all_scenes = _dedupe_assets(
+        [asset for package in auto_run.episode_packages for asset in package.scenes]
+    )
+    all_props = _dedupe_assets(
+        [asset for package in auto_run.episode_packages for asset in package.props]
+    )
+    all_costumes = _dedupe_assets(
+        [asset for package in auto_run.episode_packages for asset in package.costumes]
+    )
+    all_effects = _dedupe_assets(
+        [asset for package in auto_run.episode_packages for asset in package.special_effects]
+    )
+    series = pipeline.update_series(
+        series.id,
+        {
+            "characters": [_studio_character_from_extracted(asset) for asset in all_characters],
+            "scenes": [_studio_scene_from_extracted(asset) for asset in all_scenes],
+            "props": [
+                *[_studio_prop_from_extracted(asset) for asset in all_props],
+                *[_studio_prop_from_extracted(asset, "Costume asset") for asset in all_costumes],
+                *[_studio_prop_from_extracted(asset, "Special effect asset") for asset in all_effects],
+            ],
+        },
+    )
+
+    created_episodes: List[Script] = []
+    for package in auto_run.episode_packages:
+        project = pipeline.create_project(package.title, package.script_text, True)
+        _apply_episode_packages_to_project(project, [package])
+        pipeline.add_episode_to_series(series.id, project.id, package.order)
+        created_episodes.append(project)
+
+    refreshed_series = pipeline.get_series(series.id) or series
+    return refreshed_series, created_episodes
 
 
 @app.get("/film/templates")
@@ -593,9 +898,10 @@ async def describe_auto_drama_run():
         "sample_payload": {
             "title": "Night Signal Pilot",
             "seed_text": "A courier receives a phone call from a customer who died ten years ago.",
-            "target_chapters": 3,
+            "target_chapters": 5,
             "backend": FilmRuntimeBackend.DRY_RUN.value,
             "persist_project": True,
+            "persist_mode": "series",
         },
     }
 
@@ -604,6 +910,10 @@ async def describe_auto_drama_run():
 async def run_auto_drama(request: AutoDramaRunRequest):
     """Run text -> Novel Engine -> Film Core and optionally create a Studio draft."""
     try:
+        persist_mode = (request.persist_mode or "project").strip().lower()
+        if persist_mode not in {"project", "series"}:
+            raise ValueError("persist_mode must be 'project' or 'series'")
+
         prompt_root = os.path.join(_project_root, "docs", "Codex_Workflow_Prompts")
         auto_run = AutoDramaPipeline(prompt_root=prompt_root).run(
             request.seed_text,
@@ -617,20 +927,35 @@ async def run_auto_drama(request: AutoDramaRunRequest):
             auto_overrides=request.auto_overrides,
         )
         project = None
+        series = None
+        episodes: List[Script] = []
         if request.persist_project and auto_run.screenplay_text:
-            project = _persist_auto_drama_project(auto_run)
-            _persist_project_workflow(project)
+            if persist_mode == "series":
+                series, episodes = _persist_auto_drama_series(auto_run)
+                for episode in episodes:
+                    _persist_project_workflow(episode)
+            else:
+                project = _persist_auto_drama_project(auto_run)
+                _persist_project_workflow(project)
 
         production_run = auto_run.production_run
+        next_hash = None
+        if series:
+            next_hash = f"#/series/{series.id}"
+        elif project:
+            next_hash = f"#/project/{project.id}/step/export"
         response = {
             "status": auto_run.status,
             "waiting_for_stage": auto_run.waiting_for_stage,
             "title": auto_run.title,
             "novel_plan": auto_run.novel_plan,
+            "episode_packages": auto_run.episode_packages,
             "screenplay_text": auto_run.screenplay_text,
             "prompt_execution_plan": auto_run.prompt_execution_plan,
             "project": project,
-            "next_hash": f"#/project/{project.id}/step/export" if project else None,
+            "series": series,
+            "episodes": episodes,
+            "next_hash": next_hash,
             "story_graph": production_run.story_graph if production_run else None,
             "director_program": production_run.director_program if production_run else None,
             "film_run": {
@@ -700,6 +1025,63 @@ async def collect_project_web_media(script_id: str, request: CollectWebMediaRequ
             "attached_to": request.attach_to,
             "attached_count": attached_count,
             "project": attached_project,
+        }
+    )
+
+
+@app.post("/projects/{script_id}/assets/{asset_type}/{asset_id}/web_media/collect")
+async def collect_asset_web_media(
+    script_id: str,
+    asset_type: str,
+    asset_id: str,
+    request: CollectAssetWebMediaRequest,
+):
+    """Collect public web images/videos and attach them to one asset."""
+    script = pipeline.get_script(script_id)
+    if not script:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if asset_type not in {"character", "scene", "prop"}:
+        raise HTTPException(status_code=400, detail="asset_type must be character, scene, or prop")
+
+    asset = _find_project_asset(script, asset_type, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail=f"{asset_type} asset not found")
+
+    media_type = request.media_type if request.media_type in {"image", "video", "both"} else "image"
+    if asset_type == "character":
+        upload_type = request.upload_type if request.upload_type in {"full_body", "head_shot", "three_views"} else "full_body"
+    else:
+        # Scene and prop cards have one shared image slot, so the response should
+        # expose the same "image" intent that the Studio UI sends.
+        upload_type = "image"
+    query = request.query or _default_asset_media_query(script, asset_type, asset)
+    items = web_media_collector.collect(query=query, media_type=media_type, count=request.count)
+
+    try:
+        attached_count = _attach_web_media_to_asset(
+            script,
+            asset_type,
+            asset_id,
+            items,
+            upload_type,
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+
+    updated_script = pipeline.get_script(script_id)
+    return signed_response(
+        {
+            "status": "ready",
+            "source": "web_media_collector.v1",
+            "query": query,
+            "media_type": media_type,
+            "asset_type": asset_type,
+            "asset_id": asset_id,
+            "upload_type": upload_type,
+            "items": items,
+            "attached_to": "asset",
+            "attached_count": attached_count,
+            "project": updated_script,
         }
     )
 
