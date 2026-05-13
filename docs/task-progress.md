@@ -22,7 +22,7 @@
 | 2. 产品 PRD 与架构同步 | 已完成 | 新增产品需求说明书，更新文档中心、架构动作和本进度索引 | 文档复核 |
 | 3. 实现缺口补齐 | 已完成 | 对审计中发现的注释、类型、测试或运行问题做小范围补齐 | `compileall`、`tsc`、单测 |
 | 4. 运行验证 | 已完成 | 重启/重建服务，跑后端、前端和 Docker 冒烟 | pytest、vitest、curl、docker |
-| 5. 清理提交推送 | 进行中 | 检查冲突、diff check、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
+| 5. 清理提交推送 | 已完成 | 检查冲突、diff check、提交并 push 必要修改 | `git diff --check`、`git ls-files -u`、`git push` |
 
 当前重启后审计结论：
 
@@ -55,6 +55,11 @@
 - `GET http://127.0.0.1:17177/film/templates`：HTTP 200，返回 3 个样片与系列蓝图目录。
 - `POST http://127.0.0.1:17177/film/auto-drama/run` dry-run 冒烟：HTTP 200，返回 `novel_plan` 和 `episode_packages`。
 - `docker cp tests aidrama-backend:/app/tests && docker compose exec -T backend python -m pytest -q -s /app/tests`：通过，174 passed。
+- 小范围修正资产级 Web 采集返回 `upload_type=image` 后，已重新执行 `cd frontend && npx tsc --noEmit --pretty false`、`cd frontend && npm run test -- workflow-api`、`docker compose up -d --build --remove-orphans`、首页/Auto Drama 冒烟和容器内全量后端测试，均通过。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Add producer Auto Drama workspace flow"`：已创建提交 `4e5a85c3`。
+- `git push origin main`：已推送 `4e5a85c3` 到 `origin/main`。
 
 ### 2026-05-13 制作人一键漫剧、资产 Web 采集、主题与分集生产包
 
