@@ -42,6 +42,7 @@ make down
 - 后端 API：`http://localhost:48217/docs`
 - Film Core dry-run API：`POST http://localhost:48217/film/pipeline/run`
 - 一句话到多集漫剧 API：`POST http://localhost:48217/film/auto-drama/run`
+- 一句话到多集本地视频产出 API：`POST http://localhost:48217/film/auto-drama/produce-videos`
 - 模板目录 API：`GET http://localhost:48217/film/templates`
 - 模型建议目录：`GET http://localhost:48217/film/runtime/recommendations`
 - 项目工作流状态：`GET http://localhost:48217/projects/{projectId}/workflow`

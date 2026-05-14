@@ -11,6 +11,7 @@ pytestmark = pytest.mark.skipif(
 
 if DASHSCOPE_AVAILABLE:
     from src.apps.comic_gen import api as api_module
+    from src.film_engine import EpisodeVideoArtifact, SeriesVideoProductionRun
 
     app = api_module.app
 else:
@@ -242,6 +243,65 @@ def test_auto_drama_api_can_persist_multi_episode_series(isolated_client):
     assert data["episodes"][0]["frames"]
     assert data["episodes"][0]["props"]
     assert data["next_hash"].startswith("#/series/")
+
+
+def test_auto_drama_video_production_api_returns_manifest_contract(isolated_client, monkeypatch):
+    """Direct production API should return a series manifest and episode mp4 contracts."""
+    captured = {}
+
+    class FakeEpisodeVideoProducer:
+        """Test double that avoids running FFmpeg inside the API contract test."""
+
+        def produce_auto_run(self, auto_run, settings):
+            """Capture runtime settings and return a stable production manifest."""
+            captured["title"] = auto_run.title
+            captured["settings"] = settings
+            return SeriesVideoProductionRun(
+                title=auto_run.title,
+                run_id="test-run",
+                output_dir="output/productions/test-run",
+                series_manifest_url="productions/test-run/series_manifest.json",
+                series_manifest_path="output/productions/test-run/series_manifest.json",
+                episodes=[
+                    EpisodeVideoArtifact(
+                        episode_id="ep_01",
+                        order=1,
+                        title="Episode 1",
+                        video_url="productions/test-run/episodes/ep01/ep01.mp4",
+                        video_path="output/productions/test-run/episodes/ep01/ep01.mp4",
+                        manifest_url="productions/test-run/episodes/ep01/episode_manifest.json",
+                        manifest_path=(
+                            "output/productions/test-run/episodes/ep01/episode_manifest.json"
+                        ),
+                        duration_seconds=4.8,
+                        frame_count=3,
+                    )
+                ],
+            )
+
+    monkeypatch.setattr(api_module, "EpisodeVideoProducer", FakeEpisodeVideoProducer)
+
+    response = isolated_client.post(
+        "/film/auto-drama/produce-videos",
+        json={
+            "title": "Video Contract",
+            "seed_text": "Maya follows the dead customer's signal.",
+            "target_chapters": 1,
+            "frame_seconds": 0.8,
+            "width": 360,
+            "height": 640,
+            "fps": 12,
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "completed"
+    assert data["series_manifest_url"].endswith("series_manifest.json")
+    assert data["episodes"][0]["video_url"].endswith(".mp4")
+    assert data["episode_package_count"] == 1
+    assert captured["title"] == "Video Contract"
+    assert captured["settings"].frame_seconds == 0.8
 
 
 def test_auto_drama_api_respects_manual_prompt_gate(isolated_client):

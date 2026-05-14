@@ -42,6 +42,8 @@ from ...film_engine import (
     CharacterRegistry as FilmCharacterRegistry,
     CostumeAsset as FilmCostumeAsset,
     EpisodeProductionPackage,
+    EpisodeVideoProducer,
+    EpisodeVideoProductionSettings,
     FilmProductionPipeline,
     FilmTemplateCatalogLoader,
     RenderPackageExporter,
@@ -241,6 +243,22 @@ class AutoDramaRunRequest(BaseModel):
         "project",
         description="project creates one Studio project; series creates one multi-episode Studio series.",
     )
+    auto_overrides: Dict[str, bool] = Field(default_factory=dict)
+
+
+class AutoDramaVideoProductionRequest(BaseModel):
+    """Request model for direct multi-episode local mp4 production."""
+
+    seed_text: str = Field(..., min_length=1)
+    title: str = "Untitled AI Drama"
+    target_chapters: int = Field(3, ge=1, le=12)
+    frame_seconds: float = Field(1.6, ge=0.4, le=12.0)
+    width: int = Field(720, ge=320, le=3840)
+    height: int = Field(1280, ge=320, le=3840)
+    fps: int = Field(24, ge=12, le=60)
+    keep_intermediate_clips: bool = True
+    max_attempts: int = Field(2, ge=1, le=8)
+    min_score: float = Field(0.82, ge=0.0, le=1.0)
     auto_overrides: Dict[str, bool] = Field(default_factory=dict)
 
 
@@ -975,6 +993,73 @@ async def run_auto_drama(request: AutoDramaRunRequest):
         raise HTTPException(status_code=400, detail=str(error))
     except KeyError as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+@app.get("/film/auto-drama/produce-videos")
+async def describe_auto_drama_video_production():
+    """Describe the direct text -> multi-episode local mp4 production endpoint."""
+    return {
+        "status": "ready",
+        "endpoint": "/film/auto-drama/produce-videos",
+        "method": "POST",
+        "message": (
+            "Use POST with seed_text to generate episode packages and playable local mp4 samples."
+        ),
+        "runtime": "episode_video_producer.v1",
+        "sample_payload": {
+            "title": "Night Signal Production",
+            "seed_text": "A courier receives a phone call from a customer who died ten years ago.",
+            "target_chapters": 3,
+            "frame_seconds": 1.6,
+            "width": 720,
+            "height": 1280,
+            "fps": 24,
+        },
+    }
+
+
+@app.post("/film/auto-drama/produce-videos")
+async def produce_auto_drama_videos(request: AutoDramaVideoProductionRequest):
+    """Run Auto Drama and produce local playable mp4 files for every episode."""
+    try:
+        prompt_root = os.path.join(_project_root, "docs", "Codex_Workflow_Prompts")
+        auto_run = AutoDramaPipeline(prompt_root=prompt_root).run(
+            request.seed_text,
+            title=request.title,
+            target_chapters=request.target_chapters,
+            backend=FilmRuntimeBackend.DRY_RUN,
+            retry_policy=FilmRetryPolicy(
+                max_attempts=request.max_attempts,
+                min_score=request.min_score,
+            ),
+            auto_overrides=request.auto_overrides,
+        )
+        settings = EpisodeVideoProductionSettings(
+            width=request.width,
+            height=request.height,
+            fps=request.fps,
+            frame_seconds=request.frame_seconds,
+            keep_intermediate_clips=request.keep_intermediate_clips,
+        )
+        video_run = EpisodeVideoProducer().produce_auto_run(auto_run, settings)
+        return signed_response(
+            {
+                "status": video_run.status,
+                "title": video_run.title,
+                "run_id": video_run.run_id,
+                "series_manifest_url": video_run.series_manifest_url,
+                "series_manifest_path": video_run.series_manifest_path,
+                "output_dir": video_run.output_dir,
+                "episodes": video_run.episodes,
+                "novel_plan": auto_run.novel_plan,
+                "episode_package_count": len(auto_run.episode_packages),
+                "metadata": video_run.metadata,
+            }
+        )
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except RuntimeError as error:
+        raise HTTPException(status_code=500, detail=str(error))
 
 
 @app.get("/projects/{script_id}/workflow")

@@ -112,11 +112,21 @@
 - `frontend/src/lib/themePresets.ts`、`frontend/src/components/canvas/CreativeCanvas.tsx`、`frontend/src/app/globals.css` 通过主题预设和 CSS variables 支撑 `Noir`、`Dailies`、`Ember` 三套可持久化页面风格。
 - `tests/test_episode_production_extraction.py`、`frontend/src/components/modules/__tests__/OneSentenceDramaPanel.spec.tsx`、`frontend/src/__tests__/theme-presets.test.ts` 覆盖分集生产包、一句话 UI 和主题预设。
 
+## 本次多集视频真实产出闭环
+
+- `src/film_engine/episode_video.py` 新增 `EpisodeVideoProducer`、`EpisodeVideoProductionSettings`、`EpisodeVideoArtifact` 和 `SeriesVideoProductionRun`，把 Auto Drama 的分集生产包转换为本地可播放 mp4 和 manifests。
+- `EpisodeVideoProducer` 使用 deterministic 本地 runtime：先把每个 storyboard frame 渲染成 production slate PNG，再用 FFmpeg 编码镜头 clip，最后合并为每集 mp4。
+- `POST /film/auto-drama/produce-videos` 复用 Auto Drama Pipeline，不绕过 Novel Engine、生产包提取、prompt execution plan 和 Film Core dry-run；它只是把结构化生产包继续落成可验收视频样片。
+- `scripts/produce_auto_drama_videos.py` 提供单命令制片入口，适合本地直接产出、CI 冒烟或重启后恢复验证。
+- `requirements.txt` 和 `requirements-docker.txt` 固化 `pillow`，保证 slate 渲染在宿主和 Docker 后端容器中都有明确依赖。
+- `tests/test_episode_video_producer.py` 覆盖多集 mp4、episode manifest、series manifest 和 `ffprobe` 视频流验证；`tests/test_film_pipeline_api.py` 增加 API contract 测试。
+
 架构决策：
 
 - 生产包提取放在 Film Core，不放在页面组件中，避免后续迁移 Jellyfish 时丢失核心流程。
 - 服装和特效先以 Studio prop records 进入当前 UI，保持落盘兼容；Film Core 层仍保留独立 `costumes` 与 `special_effects` 字段，后续可升级为专门资产表。
 - 网络素材采集保持可选参考，不作为真实生成 runtime；这样离线测试、dry-run 和缺外部网络时仍能验证主流程。
+- 本地视频 producer 是正式模型 runtime 之外的低成本交付兜底，专门验证分集结构、字幕信息、导出文件、manifest 和 QA 可追溯性；商业成片仍应切换到图像/视频/配音模型 runtime。
 
 ## 后续架构优化建议
 

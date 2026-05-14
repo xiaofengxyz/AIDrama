@@ -14,6 +14,58 @@
 
 ## 本轮执行计划与状态
 
+### 2026-05-15 多集视频真实产出、PRD 同步与批量制片闭环
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 计划与现状复核 | 已完成 | 复核 git 状态、AGENTS 指令、现有 Auto Drama、分集生产包、视频任务、FFmpeg 合并、PRD 和测试文档 | `git status --short --branch`、读取关键模块和文档 |
+| 2. 产品 PRD | 已完成 | 将“直接产出若干集视频”的制作人需求补充进 PRD，明确离线样片产出与工业链路关系 | 文档复核 |
+| 3. 工程实现 | 已完成 | 新增可重复、可测试的分集视频制片 runtime/API/CLI，用真实 mp4 交付多集样片 | pytest、API 冒烟、文件探测 |
+| 4. 真实产出 | 已完成 | 直接运行项目生产多集视频，落盘 episode manifests 和 series manifest | `ffprobe`、manifest 复核 |
+| 5. 测试工程 | 已完成 | 补充后端测试和测试用例文档，覆盖生产包到 mp4 的批量链路 | pytest、文档复核 |
+| 6. 运行清理提交推送 | 进行中 | 启动服务、接口冒烟、检查冲突和工作区，提交并按需要 push | `make up`、curl、`git diff --check`、`git ls-files -u`、`git push` |
+
+当前决策：
+
+- 不启动多 agent，保持单一执行上下文。
+- “真实产出”采用本地 deterministic production runtime：使用 Novel/Auto Drama 结构化生产包生成可播放 mp4 样片，避免默认 dry-run 只产生 JSON 或 dummy 文件。
+- 该 runtime 是本地可验证兜底，不替代 DashScope/Wan/Kling/Vidu 等正式视频模型；正式模型仍作为可接入 runtime。
+- 产出文件仍落在被忽略的 `output/`，代码、测试和文档提交入库，生成视频不提交。
+
+当前实现记录：
+
+- 新增 `src/film_engine/episode_video.py`，提供 `EpisodeVideoProducer` 本地 deterministic 视频 runtime。
+- 新增 `POST /film/auto-drama/produce-videos` 和 `GET /film/auto-drama/produce-videos`。
+- 新增 `scripts/produce_auto_drama_videos.py`，可直接从命令行生成多集 mp4。
+- 新增 `tests/test_episode_video_producer.py`，并在 API 测试中补 direct production contract。
+- `requirements.txt` / `requirements-docker.txt` 固化 `pillow`，用于 frame slate 渲染。
+
+真实产出记录：
+
+- 已运行 `python3 scripts/produce_auto_drama_videos.py --title "Night Signal Direct Production" --episodes 3 --frame-seconds 1.2 --width 720 --height 1280 --fps 24`。
+- 系列 manifest：`output/productions/night_signal_direct_production_1778781770_d122d417/series_manifest.json`。
+- 第 1 集：`output/productions/night_signal_direct_production_1778781770_d122d417/episodes/ep01_ep01_hook/ep01_ep01_hook.mp4`，`ffprobe` 返回 `h264,720,1280`，时长 `3.625000`。
+- 第 2 集：`output/productions/night_signal_direct_production_1778781770_d122d417/episodes/ep02_ep02_escalation/ep02_ep02_escalation.mp4`，`ffprobe` 返回 `h264,720,1280`，时长 `3.625000`。
+- 第 3 集：`output/productions/night_signal_direct_production_1778781770_d122d417/episodes/ep03_ep03_reversal/ep03_ep03_reversal.mp4`，`ffprobe` 返回 `h264,720,1280`，时长 `3.625000`。
+
+阶段性验证记录：
+
+- `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py scripts/produce_auto_drama_videos.py`：通过。
+- `python3 -m pytest tests/test_episode_video_producer.py -q -s`：通过，2 passed。
+- `python3 -m pytest tests/test_episode_video_producer.py tests/test_episode_production_extraction.py tests/test_auto_drama_pipeline.py -q -s`：通过，7 passed。
+- `python3 -m pytest tests/test_film_pipeline_api.py -q -s`：宿主缺 DashScope SDK，16 skipped，保留 Docker 后端容器补跑。
+- `cd frontend && npm run test`：通过，12 个测试文件，126 个测试。
+- `cd frontend && npx tsc --noEmit --pretty false`：通过。
+- `make up`：通过，Docker 前后端重建并启动；前端 `39211`、后端 `48217` 均 Up。
+- `curl --noproxy '*' -sSI http://127.0.0.1:39211/`：HTTP 200。
+- `GET http://127.0.0.1:48217/film/auto-drama/produce-videos`：HTTP 200，返回 `episode_video_producer.v1`。
+- `docker compose exec -T backend python -m pytest -q -s tests/test_episode_video_producer.py tests/test_film_pipeline_api.py`：通过，18 passed。
+- `POST http://127.0.0.1:48217/film/auto-drama/produce-videos`：HTTP 200，生成 `output/productions/api_video_smoke_1778782363_be4b3d92/.../ep01_ep01_hook.mp4`。
+- API 冒烟产物 `ffprobe`：`h264,360,640`，时长 `1.750000`。
+- 格式整理后再次执行 `make up`：通过，Docker 前后端使用缓存重建并启动。
+- 最终容器冒烟：`curl http://127.0.0.1:39211/` HTTP 200，`GET /film/auto-drama/produce-videos` HTTP 200。
+- 最终容器补测：`docker compose exec -T backend python -m pytest -q -s tests/test_episode_video_producer.py tests/test_film_pipeline_api.py` 通过，18 passed。
+
 ### 2026-05-15 重启恢复：独立端口、百炼默认与服务验证
 
 | 阶段 | 状态 | 本轮动作 | 验收方式 |

@@ -135,6 +135,9 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | TC-061 | 资产级 Web 采集 | 调用 `/projects/{id}/assets/{type}/{assetId}/web_media/collect` | 图片进入 image variants，视频进入 motion reference 或 asset video list |
 | TC-062 | 页面主题 | 切换 `Noir` / `Dailies` / `Ember` | CSS 变量、Canvas 背景和按钮强调色变化，并写入 localStorage |
 | TC-063 | 首页流程地图 | 打开工作区首页 | 显示模板中心、一句话制片、我的工作区三条路径和用途 |
+| TC-064 | 多集视频直接产出 | 运行 `scripts/produce_auto_drama_videos.py --episodes 3` | `output/productions/{run_id}` 下生成 3 个可播放 mp4、3 个 episode manifest 和 1 个 series manifest |
+| TC-065 | 多集视频 API | 调用 `POST /film/auto-drama/produce-videos` | 返回 `status=completed`、`series_manifest_url`、每集 `video_url` 和 `episode_package_count` |
+| TC-066 | 视频文件探测 | 对产出的每集 mp4 执行 `ffprobe` | 返回 h264 视频流、正确宽高和大于 0 的时长 |
 
 ## 本次九阶段可视化新增自动化测试
 
@@ -157,6 +160,7 @@ python3 -m pytest tests/test_media_refs.py tests/test_provider_media.py -q -s
 | `frontend/src/__tests__/workflow-switches-api.test.ts` | `Workflow Switches` 页面所需 `/film/workflow/prompts` API client |
 | `frontend/src/__tests__/theme-presets.test.ts` | 主题预设、非法主题 fallback、Canvas 色值 |
 | `frontend/src/components/modules/__tests__/OneSentenceDramaPanel.spec.tsx` | 一句话制片 UI 调用 Auto Drama 系列落盘 |
+| `tests/test_episode_video_producer.py` | Episode package 到真实 mp4、分集 manifest、系列 manifest 和 ffprobe 验证 |
 
 新增验收命令：
 
@@ -169,8 +173,21 @@ python3 -m pytest tests/test_series_production_blueprint.py -q -s
 python3 -m pytest tests/test_film_workflow.py -q -s
 python3 -m pytest tests/test_model_runtime_config.py tests/test_workflow_prompt_switches.py tests/test_auto_drama_pipeline.py -q -s
 python3 -m pytest tests/test_episode_production_extraction.py -q -s
+python3 -m pytest tests/test_episode_video_producer.py -q -s
 python3 -m pytest tests/test_storyboard_resilience.py tests/test_web_media_collector.py -q -s
 ```
+
+## 2026-05-15 多集视频真实产出验证记录
+
+| 验证项 | 结果 |
+|---|---|
+| Python 编译 | `python3 -m compileall -q src/film_engine src/apps/comic_gen/api.py scripts/produce_auto_drama_videos.py` 通过 |
+| 新增 producer 单测 | `python3 -m pytest tests/test_episode_video_producer.py -q -s` 通过，2 passed |
+| 直接制片 CLI | `python3 scripts/produce_auto_drama_videos.py --episodes 3 ...` 通过，生成 run `night_signal_direct_production_1778781770_d122d417` |
+| 第 1 集视频 | `output/productions/night_signal_direct_production_1778781770_d122d417/episodes/ep01_ep01_hook/ep01_ep01_hook.mp4`，`ffprobe` 返回 `h264,720,1280`，时长 `3.625000` |
+| 第 2 集视频 | `output/productions/night_signal_direct_production_1778781770_d122d417/episodes/ep02_ep02_escalation/ep02_ep02_escalation.mp4`，`ffprobe` 返回 `h264,720,1280`，时长 `3.625000` |
+| 第 3 集视频 | `output/productions/night_signal_direct_production_1778781770_d122d417/episodes/ep03_ep03_reversal/ep03_ep03_reversal.mp4`，`ffprobe` 返回 `h264,720,1280`，时长 `3.625000` |
+| Manifest | `series_manifest.json`、3 个 `episode_manifest.json` 均已生成，记录脚本、分镜、资产数量、clip 和最终 mp4 路径 |
 
 ## 2026-05-14 重启恢复验证记录
 

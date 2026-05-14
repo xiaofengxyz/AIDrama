@@ -9,6 +9,12 @@ from .batch import BatchProductionRunner
 from .auto_drama import AutoDramaPipeline, AutoDramaRun
 from .director_dsl import DirectorDSLParser
 from .director_planner import DirectorPlanner
+from .episode_video import (
+    EpisodeVideoArtifact,
+    EpisodeVideoProducer,
+    EpisodeVideoProductionSettings,
+    SeriesVideoProductionRun,
+)
 from .final_editing import FinalEditingAssembler
 from .ledger import GenerationLedgerRecorder
 from .models import (
@@ -113,6 +119,9 @@ __all__ = [
     "EpisodeProductionPackage",
     "ExtractedProductionAsset",
     "ExtractedStoryboardFrame",
+    "EpisodeVideoArtifact",
+    "EpisodeVideoProducer",
+    "EpisodeVideoProductionSettings",
     "FinalEditClip",
     "FinalEditTimeline",
     "FinalEditingAssembler",
@@ -152,6 +161,7 @@ __all__ = [
     "SeriesEpisodeBlueprint",
     "SeriesProductionBlueprint",
     "SeriesProductionPlanner",
+    "SeriesVideoProductionRun",
     "ShotRun",
     "ShotGraph",
     "ShotGraphBuilder",

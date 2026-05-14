@@ -41,9 +41,18 @@ make up
 
 ```bash
 python3 -m pytest tests/test_film_engine_core.py tests/test_film_engine_batch.py tests/test_film_production_pipeline.py -q -s
+python3 -m pytest tests/test_episode_video_producer.py -q -s
 cd frontend && npm run test
 docker compose config --quiet
 ```
+
+## 本地直接产出多集视频
+
+```bash
+python3 scripts/produce_auto_drama_videos.py --episodes 3
+```
+
+生成的 mp4、分集 manifest 和系列 manifest 会写入 `output/productions/`，该目录不入库。
 
 ## 文档入口
 
