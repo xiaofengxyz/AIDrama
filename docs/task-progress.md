@@ -23,7 +23,7 @@
 | 3. 工程实现 | 已完成 | 新增可重复、可测试的分集视频制片 runtime/API/CLI，用真实 mp4 交付多集样片 | pytest、API 冒烟、文件探测 |
 | 4. 真实产出 | 已完成 | 直接运行项目生产多集视频，落盘 episode manifests 和 series manifest | `ffprobe`、manifest 复核 |
 | 5. 测试工程 | 已完成 | 补充后端测试和测试用例文档，覆盖生产包到 mp4 的批量链路 | pytest、文档复核 |
-| 6. 运行清理提交推送 | 进行中 | 启动服务、接口冒烟、检查冲突和工作区，提交并按需要 push | `make up`、curl、`git diff --check`、`git ls-files -u`、`git push` |
+| 6. 运行清理提交推送 | 已完成 | 启动服务、接口冒烟、检查冲突和工作区，提交并按需要 push | `make up`、curl、`git diff --check`、`git ls-files -u`、`git push` |
 
 当前决策：
 
@@ -65,6 +65,11 @@
 - 格式整理后再次执行 `make up`：通过，Docker 前后端使用缓存重建并启动。
 - 最终容器冒烟：`curl http://127.0.0.1:39211/` HTTP 200，`GET /film/auto-drama/produce-videos` HTTP 200。
 - 最终容器补测：`docker compose exec -T backend python -m pytest -q -s tests/test_episode_video_producer.py tests/test_film_pipeline_api.py` 通过，18 passed。
+- `git diff --check`：通过。
+- `git ls-files -u`：无输出，无未解决冲突。
+- `git commit -m "Add direct Auto Drama video production"`：已创建提交 `b7e719d5`。
+- 首次 `git push origin main` 在 SSH 交互/网络层挂起，已安全结束进程，保留本地提交。
+- `GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=15' git push origin main`：已成功推送 `b7e719d5` 到 `origin/main`。
 
 ### 2026-05-15 重启恢复：独立端口、百炼默认与服务验证
 
