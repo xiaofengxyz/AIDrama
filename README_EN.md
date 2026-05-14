@@ -25,8 +25,8 @@ make up
 
 Open:
 
-- Studio: http://localhost:3014
-- Backend API: http://localhost:17177/docs
+- Studio: http://localhost:39211
+- Backend API: http://localhost:48217/docs
 
 ## Validate
 

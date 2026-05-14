@@ -22,8 +22,8 @@ Novel / Script
 - 可运行入口：AIDrama Studio
 - 主平台基座口径：Jellyfish
 - 核心内核：`src/film_engine/`
-- 前端：Next.js 工作台，端口 `3014`
-- 后端：FastAPI，端口 `17177`
+- 前端：Next.js 工作台，端口 `39211`
+- 后端：FastAPI，端口 `48217`
 - 临时上游参考：`external/`，已被 `.gitignore` 忽略，不参与提交和构建
 
 ## 快速启动
@@ -34,8 +34,8 @@ make up
 
 然后打开：
 
-- Studio: http://localhost:3014
-- Backend API: http://localhost:17177/docs
+- Studio: http://localhost:39211
+- Backend API: http://localhost:48217/docs
 
 ## 验证
 

@@ -1,6 +1,25 @@
 # 架构分析与本轮工程动作
 
-日期：2026-05-14
+日期：2026-05-15
+
+## 本轮重启恢复工程计划
+
+目标：把服务启动、前端 API 解析、Docker 代理和模型运行时统一到一套可恢复配置，保证重启后不会与其他项目端口冲突，也不会误切到非百炼模型。
+
+执行步骤：
+
+1. 端口配置层：新增共享 Node 启动配置解析，默认前端 `39211`、后端 `48217`，并允许 `.env` / `.env.local` 在不提交密钥的前提下覆盖。
+2. 后端启动层：`scripts/start-backend.js`、`start_backend.sh`、`Dockerfile.backend` 和桌面 `main.py` 统一使用 `API_HOST/API_PORT`，默认值为本轮独立端口。
+3. 前端启动层：新增 `scripts/start-frontend.js`，把 `PORT` 和 `NEXT_PUBLIC_API_URL` 注入 Next dev server；`frontend/src/lib/api.ts` 使用显式 API URL 或自定义开发端口识别。
+4. Docker 同源层：`docker-compose.yml` 与 `docker/nginx.conf` 改到 `39211/48217`，保证静态前端请求 `/film`、`/projects`、`/series` 等接口时代理到正确后端。
+5. 百炼运行时层：启动配置和 bootstrap 默认 `LLM_PROVIDER=dashscope`、`OPENAI_MODEL=qwen-plus`，DashScope 兼容地址仍由 `.env` / `.env.local` 提供。
+6. 验证层：补前端端口解析测试，运行后端 Film API 测试、前端 vitest 子集、服务启动和 HTTP 冒烟。
+
+风险与处理：
+
+- `.env` 是本地密钥文件，不提交；只通过安全脚本写入非敏感运行键。
+- 历史文档中的旧端口保留为历史记录，当前启动文档和代码必须使用新端口。
+- 本机已有 `17177/3014/3015` 监听，验证时不停止它们，只启动本项目的新端口。
 
 ## 当前架构判断
 

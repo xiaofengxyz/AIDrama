@@ -1,30 +1,64 @@
 import axios from "axios";
 
-// Dynamic API URL detection:
-// 1. In packaged app (Electron): Frontend is served by backend, use same origin
-// 2. In development (port 3000/3001): Use backend port 17177
+const DEFAULT_BACKEND_PORT = "48217";
+const KNOWN_FRONTEND_DEV_PORTS = new Set(["3000", "3001", "3014", "3015", "39211"]);
+
+interface ApiUrlParts {
+    protocol?: string;
+    hostname?: string;
+    port?: string;
+    configuredUrl?: string;
+}
+
+/**
+ * Resolve the backend API URL for browser and SSR contexts.
+ * @param parts Runtime URL parts and optional build-time API override.
+ * @returns Absolute API base URL without a trailing slash.
+ */
+export function resolveApiUrl(parts: ApiUrlParts = {}): string {
+    const configuredUrl = parts.configuredUrl?.trim();
+    if (configuredUrl) {
+        return configuredUrl.replace(/\/+$/, "");
+    }
+
+    const protocol = parts.protocol || "http:";
+    const hostname = parts.hostname || "localhost";
+    const port = parts.port || "";
+
+    // Next dev runs on a separate frontend port, so browser calls must target FastAPI directly.
+    if (KNOWN_FRONTEND_DEV_PORTS.has(port)) {
+        return `${protocol}//${hostname}:${DEFAULT_BACKEND_PORT}`;
+    }
+
+    // Packaged and nginx-served builds can use the current origin when frontend and backend are colocated.
+    return `${protocol}//${hostname}${port ? ":" + port : ""}`;
+}
+
+/**
+ * Detect the API URL from the active runtime environment.
+ * @returns Absolute API base URL used by all frontend API helpers.
+ */
 const getApiUrl = (): string => {
+    const configuredUrl = process.env.NEXT_PUBLIC_API_URL;
+
     // If running in browser
     if (typeof window !== 'undefined') {
         const { protocol, hostname, port } = window.location;
-
-        // In development mode (port 3000/3001 = Next.js dev server)
-        // Backend is on a different port
-        if (port === '3000' || port === '3001') {
-            return `${protocol}//${hostname}:17177`;
-        }
-
-        // In production/packaged mode: Frontend is served by backend
-        // Use same origin
-        return `${protocol}//${hostname}${port ? ':' + port : ''}`;
+        return resolveApiUrl({ protocol, hostname, port, configuredUrl });
     }
 
     // SSR fallback
-    return 'http://localhost:17177';
+    return resolveApiUrl({ protocol: "http:", hostname: "localhost", port: "39211", configuredUrl });
 };
 
 export const API_URL = getApiUrl();
 
+/**
+ * Assert that an API endpoint returned a JSON array before UI code maps over it.
+ * @param data Raw response payload from an API endpoint.
+ * @param endpoint Human-readable endpoint label for diagnostics.
+ * @returns The original array payload with its expected item type.
+ */
 export function ensureArrayResponse<T>(data: unknown, endpoint: string): T[] {
     if (Array.isArray(data)) {
         return data as T[];

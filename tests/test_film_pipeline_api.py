@@ -163,6 +163,24 @@ def test_runtime_recommendations_api_is_bailian_first():
     assert stages["voice_runtime"]["model_recommendations"][0]["model"] == "cosyvoice-v3-flash"
 
 
+def test_config_info_exposes_non_secret_runtime_defaults(monkeypatch):
+    """Config diagnostics should show ports and Bailian defaults without leaking keys."""
+    monkeypatch.setenv("API_PORT", "48217")
+    monkeypatch.setenv("FRONTEND_PORT", "39211")
+    monkeypatch.setenv("LLM_PROVIDER", "dashscope")
+    client = TestClient(app)
+
+    response = client.get("/config/info")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["runtime"]["api_port"] == "48217"
+    assert data["runtime"]["frontend_port"] == "39211"
+    assert data["runtime"]["llm_provider"] == "dashscope"
+    assert "api_key" not in data["dashscope"]
+    assert data["dashscope"]["api_key_configured"] in (True, False)
+
+
 def test_workflow_prompt_switch_api_exposes_auto_execution_plan():
     """Codex workflow prompts should expose auto/manual gates to the backend."""
     client = TestClient(app)

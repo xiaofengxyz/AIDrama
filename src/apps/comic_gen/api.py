@@ -1839,13 +1839,25 @@ load_user_config()
 
 @app.get("/config/info")
 async def get_config_info():
-    """Returns information about the current config storage mode."""
+    """Returns non-secret runtime and config storage information."""
+    from ...models.runtime_config import endpoint_public_summary, resolve_model_runtime_endpoint
+
     config_path = get_user_config_path()
     is_packaged = os.getenv("AIDRAMA_PACKAGED", "false").lower() == "true" or getattr(sys, 'frozen', False)
     return {
         "mode": "packaged" if is_packaged else "development",
         "config_path": config_path,
-        "config_exists": os.path.exists(config_path)
+        "config_exists": os.path.exists(config_path),
+        "runtime": {
+            "api_host": os.getenv("API_HOST", "0.0.0.0"),
+            "api_port": os.getenv("API_PORT", "48217"),
+            "frontend_port": os.getenv("FRONTEND_PORT", "39211"),
+            "llm_provider": os.getenv("LLM_PROVIDER", "dashscope") or "dashscope",
+            "text_model": os.getenv("DASHSCOPE_MODEL") or os.getenv("OPENAI_MODEL", "qwen-plus"),
+        },
+        "dashscope": endpoint_public_summary(
+            resolve_model_runtime_endpoint({}, "DASHSCOPE")
+        ),
     }
 
 
@@ -3127,9 +3139,9 @@ async def get_env_config():
         return {
             "DASHSCOPE_API_KEY": os.getenv("DASHSCOPE_API_KEY", ""),
             "DASHSCOPE_COMPATIBLE_BASE_URL": os.getenv("DASHSCOPE_COMPATIBLE_BASE_URL", ""),
-            "LLM_PROVIDER": os.getenv("LLM_PROVIDER", ""),
+            "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "dashscope"),
             "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
-            "OPENAI_MODEL": os.getenv("OPENAI_MODEL", ""),
+            "OPENAI_MODEL": os.getenv("OPENAI_MODEL", "qwen-plus"),
             "ALIBABA_CLOUD_ACCESS_KEY_ID": os.getenv("ALIBABA_CLOUD_ACCESS_KEY_ID", ""),
             "ALIBABA_CLOUD_ACCESS_KEY_SECRET": os.getenv("ALIBABA_CLOUD_ACCESS_KEY_SECRET", ""),
             "OSS_BUCKET_NAME": os.getenv("OSS_BUCKET_NAME", ""),

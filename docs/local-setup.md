@@ -18,11 +18,11 @@
 
 ## 端口
 
-- 前端：`http://localhost:3014`
-- 后端：`http://localhost:17177`
-- API 文档：`http://localhost:17177/docs`
+- 前端：`http://localhost:39211`
+- 后端：`http://localhost:48217`
+- API 文档：`http://localhost:48217/docs`
 
-这里避开常用 `3000`，把当前兼容工作台前端映射到 `3014`。
+这里避开常用 `3000`，把当前兼容工作台前端映射到 `39211`。
 
 ## 启动
 
@@ -35,12 +35,12 @@ make up
 ```bash
 docker compose ps
 docker compose config --quiet
-curl http://localhost:17177/config/info
+curl http://localhost:48217/config/info
 ```
 
 ## 密钥配置
 
-密钥来源为 `Doc/accounts`。运行 `make up` 时会自动执行：
+密钥优先来源为 `Doc/accounts`；如果没有该文件，会使用本地 `.env` 中的 `DASHSCOPE_API_KEY`。运行 `make up` 时会自动执行：
 
 ```bash
 ./scripts/bootstrap_env.sh
@@ -51,6 +51,8 @@ curl http://localhost:17177/config/info
 - `DASHSCOPE_API_KEY`
 - `DASHSCOPE_BASE_URL`
 - `LLM_PROVIDER=dashscope`
+- `API_PORT=48217`
+- `FRONTEND_PORT=39211`
 - `OPENAI_BASE_URL` 与 `OPENAI_API_KEY`，作为可选 OpenAI-compatible 备用配置
 
 `.env.local`、旧版 `.env` 与 `Doc/accounts` 都被 `.gitignore` 忽略，`Doc/accounts` 也被 `.dockerignore` 忽略。

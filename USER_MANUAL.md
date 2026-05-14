@@ -131,7 +131,7 @@ bash scripts/bootstrap_env.sh
 第 9 步还会读取模型建议目录：
 
 ```bash
-curl -sS http://localhost:17177/film/runtime/recommendations
+curl -sS http://localhost:48217/film/runtime/recommendations
 ```
 
 这个接口不会消耗模型额度，它只告诉你每个阶段推荐使用哪个模型、需要哪些环境变量，以及哪些适配器是“当前可用”还是“后续升级”。
@@ -139,7 +139,7 @@ curl -sS http://localhost:17177/film/runtime/recommendations
 工作流 prompt 开关目录：
 
 ```bash
-curl -sS http://localhost:17177/film/workflow/prompts
+curl -sS http://localhost:48217/film/workflow/prompts
 ```
 
 每个 `docs/Codex_Workflow_Prompts/*.md` 文件顶部都有 `workflow_switch`：
@@ -178,17 +178,17 @@ make up
 
 访问：
 
-- Studio：`http://localhost:3014`
-- Backend API：`http://localhost:17177/docs`
-- Film Core dry-run API：`http://localhost:17177/film/pipeline/run`
-- 模板目录 API：`http://localhost:17177/film/templates`
+- Studio：`http://localhost:39211`
+- Backend API：`http://localhost:48217/docs`
+- Film Core dry-run API：`http://localhost:48217/film/pipeline/run`
+- 模板目录 API：`http://localhost:48217/film/templates`
 
 健康检查：
 
 ```bash
 docker compose ps
-curl -I http://localhost:3014/
-curl -sS http://localhost:17177/config/info
+curl -I http://localhost:39211/
+curl -sS http://localhost:48217/config/info
 ```
 
 ## 4. UI 从零做一部多集 AI 漫剧
@@ -212,7 +212,7 @@ curl -sS http://localhost:17177/config/info
 也可以用 API 生成同样的多集系列：
 
 ```bash
-curl -sS -X POST http://localhost:17177/film/auto-drama/run \
+curl -sS -X POST http://localhost:48217/film/auto-drama/run \
   -H 'Content-Type: application/json' \
   -d '{
     "title": "夜半信号",
@@ -249,7 +249,7 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 
 ### 4.0 先看首页模板中心
 
-打开 `http://localhost:3014` 后，首页顶部会出现“AI 漫剧模板中心”。
+打开 `http://localhost:39211` 后，首页顶部会出现“AI 漫剧模板中心”。
 
 首页现在有三块：
 
@@ -274,7 +274,7 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 
 ### 4.1 新建系列
 
-打开 `http://localhost:3014`。
+打开 `http://localhost:39211`。
 
 1. 点击“新建系列”。
 2. 输入系列名，例如“夜半信号”。
@@ -332,7 +332,7 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 API 等价操作：
 
 ```bash
-curl -sS -X POST http://localhost:17177/projects/{projectId}/assets/character/{characterId}/web_media/collect \
+curl -sS -X POST http://localhost:48217/projects/{projectId}/assets/character/{characterId}/web_media/collect \
   -H 'Content-Type: application/json' \
   -d '{
     "media_type": "both",
@@ -448,7 +448,7 @@ Maya: The phone rang again. [character=maya] [prop=evidence_phone] [costume=blue
 页面还会读取当前项目的 CineForge 工作流状态：
 
 ```bash
-curl -sS http://localhost:17177/projects/{projectId}/workflow
+curl -sS http://localhost:48217/projects/{projectId}/workflow
 ```
 
 工作流会显示 9 个生产阶段：Novel Engine、Asset Pipeline、Storyboard、Image Runtime、Video Runtime、Voice Runtime、Composition、QA & Retry、Export。每个阶段都有状态、阻塞项、下一步动作和模型建议。
@@ -473,7 +473,7 @@ curl -sS http://localhost:17177/projects/{projectId}/workflow
 
 ### 4.11 推荐最快路径：从模板到 5 集样片
 
-1. 打开 `http://localhost:3014`。
+1. 打开 `http://localhost:39211`。
 2. 在“AI 漫剧模板中心”点击 `创建 5 集系列`。
 3. 进入 `Night Signal Season 1` 系列页，确认左侧有 EP01-EP05。
 4. 打开 EP01，进入第 9 步 `QA & Export`，确认九阶段 dry-run 全部可见。
@@ -503,8 +503,8 @@ samples/series_production/vertical_suspense_5ep.yaml
 
 页面查看方式：
 
-- 首页：`http://localhost:3014` 的“AI 漫剧模板中心”。
-- API：`GET http://localhost:17177/film/templates`。
+- 首页：`http://localhost:39211` 的“AI 漫剧模板中心”。
+- API：`GET http://localhost:48217/film/templates`。
 - 文件：`samples/series_production/vertical_suspense_5ep.yaml`。
 
 用 Python 直接 dry-run：
@@ -548,8 +548,8 @@ samples/pilot_samples/three_60_90s_pilots.yaml
 
 页面查看方式：
 
-- 首页：`http://localhost:3014` 的“AI 漫剧模板中心”。
-- API：`GET http://localhost:17177/film/templates`。
+- 首页：`http://localhost:39211` 的“AI 漫剧模板中心”。
+- API：`GET http://localhost:48217/film/templates`。
 - 文件：`samples/pilot_samples/three_60_90s_pilots.yaml`。
 
 操作建议：
@@ -565,7 +565,7 @@ samples/pilot_samples/three_60_90s_pilots.yaml
 浏览器直接打开：
 
 ```text
-http://localhost:3014/film/pipeline/run
+http://localhost:39211/film/pipeline/run
 ```
 
 会看到 endpoint 说明和 sample payload。
@@ -573,25 +573,25 @@ http://localhost:3014/film/pipeline/run
 模板目录：
 
 ```bash
-curl -sS http://localhost:17177/film/templates
+curl -sS http://localhost:48217/film/templates
 ```
 
 从样片模板创建独立项目：
 
 ```bash
-curl -sS -X POST http://localhost:17177/film/templates/pilots/midnight_delivery_70s/instantiate
+curl -sS -X POST http://localhost:48217/film/templates/pilots/midnight_delivery_70s/instantiate
 ```
 
 从 5 集蓝图创建系列：
 
 ```bash
-curl -sS -X POST http://localhost:17177/film/templates/series/night_signal_s01/instantiate
+curl -sS -X POST http://localhost:48217/film/templates/series/night_signal_s01/instantiate
 ```
 
 命令行 dry-run 示例：
 
 ```bash
-curl -sS -X POST http://localhost:17177/film/pipeline/run \
+curl -sS -X POST http://localhost:48217/film/pipeline/run \
   -H 'Content-Type: application/json' \
   -d '{
     "script_text": "INT. NIGHT CORRIDOR\nMaya: The phone rang again. [character=maya]",
@@ -613,13 +613,13 @@ curl -sS -X POST http://localhost:17177/film/pipeline/run \
 工作流状态：
 
 ```bash
-curl -sS http://localhost:17177/projects/{projectId}/workflow
+curl -sS http://localhost:48217/projects/{projectId}/workflow
 ```
 
 自动采集 Web 素材：
 
 ```bash
-curl -sS -X POST http://localhost:17177/projects/{projectId}/web_media/collect \
+curl -sS -X POST http://localhost:48217/projects/{projectId}/web_media/collect \
   -H 'Content-Type: application/json' \
   -d '{"media_type":"both","count":3}'
 ```
@@ -627,7 +627,7 @@ curl -sS -X POST http://localhost:17177/projects/{projectId}/web_media/collect \
 给缺图分镜自动挂载图片：
 
 ```bash
-curl -sS -X POST http://localhost:17177/projects/{projectId}/web_media/collect \
+curl -sS -X POST http://localhost:48217/projects/{projectId}/web_media/collect \
   -H 'Content-Type: application/json' \
   -d '{"media_type":"image","count":3,"attach_to":"storyboard"}'
 ```
@@ -635,7 +635,7 @@ curl -sS -X POST http://localhost:17177/projects/{projectId}/web_media/collect \
 记录重生成意图：
 
 ```bash
-curl -sS -X POST http://localhost:17177/projects/{projectId}/workflow/stages/video_runtime/regenerate \
+curl -sS -X POST http://localhost:48217/projects/{projectId}/workflow/stages/video_runtime/regenerate \
   -H 'Content-Type: application/json' \
   -d '{"reason":"主角动作幅度太弱，重生成视频候选","dry_run":true}'
 ```
@@ -645,8 +645,8 @@ curl -sS -X POST http://localhost:17177/projects/{projectId}/workflow/stages/vid
 一键 Auto Drama：
 
 ```bash
-curl -sS http://localhost:17177/film/auto-drama/run
-curl -sS -X POST http://localhost:17177/film/auto-drama/run \
+curl -sS http://localhost:48217/film/auto-drama/run
+curl -sS -X POST http://localhost:48217/film/auto-drama/run \
   -H 'Content-Type: application/json' \
   -d '{"title":"Auto Pilot","seed_text":"A courier receives a call from a dead customer.","target_chapters":3}'
 ```
@@ -654,7 +654,7 @@ curl -sS -X POST http://localhost:17177/film/auto-drama/run \
 工作流 prompt 开关：
 
 ```bash
-curl -sS http://localhost:17177/film/workflow/prompts
+curl -sS http://localhost:48217/film/workflow/prompts
 ```
 
 ## 8. 如何解决行业痛点
@@ -701,13 +701,13 @@ curl -sS http://localhost:17177/film/workflow/prompts
 
 ```bash
 docker compose ps
-curl -I http://localhost:3014/
+curl -I http://localhost:39211/
 ```
 
 后端不可用：
 
 ```bash
-curl -sS http://localhost:17177/config/info
+curl -sS http://localhost:48217/config/info
 docker compose logs backend --tail=100
 ```
 

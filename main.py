@@ -21,6 +21,20 @@ else:
 
 cwd = application_path
 
+
+def _get_runtime_port() -> int:
+    """Return the packaged app API port, falling back to the project-safe default."""
+    raw_port = os.getenv("API_PORT", "48217").strip()
+    try:
+        port = int(raw_port)
+    except ValueError:
+        return 48217
+    return port if 1 <= port <= 65535 else 48217
+
+
+APP_HOST = os.getenv("API_HOST", "127.0.0.1")
+APP_PORT = _get_runtime_port()
+
 from starlette.staticfiles import StaticFiles
 
 # 切换到用户数据目录
@@ -84,8 +98,8 @@ def run_server():
     # 这样可以避免 PyArmor 混淆后字符串导入失败的问题
     # 注意: Windows 不支持 uvloop, 使用默认的 asyncio 事件循环
     uvicorn.run(app,
-                host="127.0.0.1",
-                port=17177,
+                host=APP_HOST,
+                port=APP_PORT,
                 reload=False,
                 log_level="info",
                 )
@@ -111,7 +125,7 @@ def open_webview():
     # 创建 pywebview 窗口
     window = webview.create_window(
         title="AIDrama Studio",
-        url=f"http://127.0.0.1:17177/static/index.html?timestamp={datetime.now().timestamp()}",
+        url=f"http://127.0.0.1:{APP_PORT}/static/index.html?timestamp={datetime.now().timestamp()}",
         width=1280,
         height=800,
         resizable=True,

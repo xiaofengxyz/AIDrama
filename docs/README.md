@@ -38,17 +38,17 @@ make down
 
 启动后访问：
 
-- 前端：`http://localhost:3014`
-- 后端 API：`http://localhost:17177/docs`
-- Film Core dry-run API：`POST http://localhost:17177/film/pipeline/run`
-- 一句话到多集漫剧 API：`POST http://localhost:17177/film/auto-drama/run`
-- 模板目录 API：`GET http://localhost:17177/film/templates`
-- 模型建议目录：`GET http://localhost:17177/film/runtime/recommendations`
-- 项目工作流状态：`GET http://localhost:17177/projects/{projectId}/workflow`
+- 前端：`http://localhost:39211`
+- 后端 API：`http://localhost:48217/docs`
+- Film Core dry-run API：`POST http://localhost:48217/film/pipeline/run`
+- 一句话到多集漫剧 API：`POST http://localhost:48217/film/auto-drama/run`
+- 模板目录 API：`GET http://localhost:48217/film/templates`
+- 模型建议目录：`GET http://localhost:48217/film/runtime/recommendations`
+- 项目工作流状态：`GET http://localhost:48217/projects/{projectId}/workflow`
 
 ## 当前样例模板
 
 - `samples/pilot_samples/three_60_90s_pilots.yaml`：3 个 60-90 秒样片方向。
 - `samples/series_production/vertical_suspense_5ep.yaml`：5 集竖屏悬疑短漫剧蓝图，可用于批量 dry-run 验证。
 
-这些模板也会显示在 `http://localhost:3014` 首页顶部的“AI 漫剧模板中心”，可直接创建样片项目或 5 集系列草稿。首页还包含“一句话生成多集 AI 漫剧”和工作区流程地图，用于从故事点直接生成系列草稿，并解释模板中心、制片入口、工作区的分工。
+这些模板也会显示在 `http://localhost:39211` 首页顶部的“AI 漫剧模板中心”，可直接创建样片项目或 5 集系列草稿。首页还包含“一句话生成多集 AI 漫剧”和工作区流程地图，用于从故事点直接生成系列草稿，并解释模板中心、制片入口、工作区的分工。

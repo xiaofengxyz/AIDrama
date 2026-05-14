@@ -2,7 +2,7 @@
 const isProd = process.env.NODE_ENV === 'production';
 const isDocker = process.env.DOCKER_BUILD === 'true';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:17177';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:48217';
 
 const nextConfig = {
     output: isProd ? 'export' : undefined,
@@ -34,7 +34,7 @@ const nextConfig = {
             {
                 protocol: "http",
                 hostname: "localhost",
-                port: "17177",
+                port: "48217",
             },
         ],
     },

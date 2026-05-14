@@ -20,6 +20,9 @@ COPY samples/ samples/
 # Copy workflow prompt switches used by Auto Drama and workflow gate APIs.
 COPY docs/Codex_Workflow_Prompts/ docs/Codex_Workflow_Prompts/
 
+# Copy backend tests so container-based validation matches the documented workflow.
+COPY tests/ tests/
+
 # Create output directories
 RUN mkdir -p output/uploads output/video output/assets output/storyboard \
     output/audio output/export output/video_inputs output/outputs/videos
@@ -28,7 +31,11 @@ RUN mkdir -p output/uploads output/video output/assets output/storyboard \
 ENV NO_PROXY="*.aliyuncs.com,localhost,127.0.0.1"
 ENV no_proxy="*.aliyuncs.com,localhost,127.0.0.1"
 ENV PYTHONUNBUFFERED=1
+ENV API_HOST="0.0.0.0"
+ENV API_PORT="48217"
+ENV LLM_PROVIDER="dashscope"
+ENV OPENAI_MODEL="qwen-plus"
 
-EXPOSE 17177
+EXPOSE 48217
 
-CMD ["python", "-m", "uvicorn", "src.apps.comic_gen.api:app", "--host", "0.0.0.0", "--port", "17177"]
+CMD ["sh", "-c", "python -m uvicorn src.apps.comic_gen.api:app --host ${API_HOST:-0.0.0.0} --port ${API_PORT:-48217}"]

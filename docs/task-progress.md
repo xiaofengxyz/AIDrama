@@ -1,6 +1,6 @@
 # 任务进度索引
 
-日期：2026-05-14
+日期：2026-05-15
 
 这个文件用于跨会话交接。后续 AI 或人工进入仓库时，先读本文件，再读 `docs/README.md` 和 `agent.md`。
 
@@ -13,6 +13,43 @@
 - `external/` 仅作为被忽略的上游参考区，不参与提交和构建。
 
 ## 本轮执行计划与状态
+
+### 2026-05-15 重启恢复：独立端口、百炼默认与服务验证
+
+| 阶段 | 状态 | 本轮动作 | 验收方式 |
+|---|---|---|---|
+| 1. 安全审计与计划 | 已完成 | 复核 git 状态、AGENTS 指令、启动脚本、端口监听、模型运行时和测试入口 | `git status --short --branch`、`ss -ltnp`、读取关键文件 |
+| 2. 产品 PRD | 已完成 | 明确重启恢复、独立端口、百炼默认、AI 漫剧生产流和 UI 模块验收 | 文档复核 |
+| 3. 架构实现计划 | 已完成 | 拆分启动配置、后端端口、前端端口、Docker 代理、百炼运行时、测试验证 | 文档复核 |
+| 4. 工程实现 | 已完成 | 修改脚本、Docker、前端 API URL 解析、`.env.example` 和本地 `.env` 非敏感运行键 | 代码检查 |
+| 5. 测试验证 | 已完成 | 跑后端 Film API、前端 API/配置测试、启动服务并 curl 冒烟 | pytest、vitest、curl |
+| 6. 清理提交推送 | 进行中 | 检查冲突和工作区，提交必要修改并 push | `git diff --check`、`git ls-files -u`、`git push` |
+
+当前决策：
+
+- 前端端口改为 `39211`，后端端口改为 `48217`，避开本机已监听的 `17177/3014/3015`。
+- 大模型默认策略保持阿里百炼 DashScope：`LLM_PROVIDER=dashscope`，文本兼容模型默认 `qwen-plus`。
+- `.env` 与 `.env.local` 保持本地密钥文件，不提交；本轮只写入端口和百炼默认这类运行配置。
+
+当前实现记录：
+
+- 新增 `scripts/runtime-config.js`，统一解析 `.env` / `.env.local` 中的端口、API URL 和百炼默认值。
+- 新增 `scripts/start-frontend.js`，`npm run dev` 会注入 `PORT=39211` 和 `NEXT_PUBLIC_API_URL=http://localhost:48217`。
+- 后端脚本、Docker、nginx、桌面入口和前端 API URL 解析已切换到 `48217`。
+- `scripts/bootstrap_env.sh` 支持缺少 `Doc/accounts` 时从本地 `.env` 生成 `.env.local`，匹配本轮“密钥已经在 .env”场景。
+- `Dockerfile.backend` 复制 `tests/`，让容器内 pytest 回归与文档保持一致。
+
+验证记录：
+
+- `python3 -m compileall -q src/apps/comic_gen/api.py src/apps/comic_gen/llm_adapter.py main.py`：通过。
+- 宿主 `python3 -m pytest -q -s tests/test_film_pipeline_api.py`：宿主缺 DashScope SDK，15 个用例按项目 skip 规则跳过。
+- `npm run test -- api-response.test.ts endpoint-config.test.ts`：2 个文件、27 个前端测试通过。
+- `make up`：从 `.env` 生成 `.env.local`，Docker 前端与后端镜像构建成功。
+- `docker compose ps`：前端 `39211->80`、后端 `48217->48217` 均 Up。
+- `docker compose exec -T backend python -m pytest -q -s tests/test_film_pipeline_api.py`：15 个后端 API 测试通过。
+- `curl http://127.0.0.1:39211/`：HTTP 200。
+- `curl http://127.0.0.1:48217/config/info`：HTTP 200，返回 `llm_provider=dashscope`、`api_port=48217`、`frontend_port=39211`。
+- `curl http://127.0.0.1:39211/film/runtime/recommendations`：HTTP 200，返回 `Bailian-first` 模型策略。
 
 ### 2026-05-14 重启恢复：PRD、最终验证与推送
 

@@ -65,9 +65,10 @@ class LLMAdapter:
         return self._client
 
     def _get_default_model(self) -> str:
+        """Return the provider default text model for storyboard and script tasks."""
         if self.provider == "openai":
             return os.getenv("OPENAI_MODEL", "gpt-4o")
-        return "qwen3.5-plus"
+        return os.getenv("DASHSCOPE_MODEL", "qwen-plus")
 
     def chat(
         self,

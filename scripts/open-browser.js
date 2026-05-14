@@ -1,21 +1,23 @@
 const { exec } = require('child_process');
+const path = require('path');
+const { getRuntimeConfig } = require('./runtime-config');
 
-const URL = 'http://localhost:3000';
+const config = getRuntimeConfig(path.join(__dirname, '..'));
 
 setTimeout(() => {
   console.log('\n  ╔══════════════════════════════════════════╗');
   console.log('  ║                                          ║');
   console.log('  ║   AIDrama Film Engine Ready!             ║');
   console.log('  ║                                          ║');
-  console.log('  ║   Frontend:  http://localhost:3000       ║');
-  console.log('  ║   Backend:   http://localhost:17177      ║');
+  console.log(`  ║   Frontend:  ${config.frontendUrl.padEnd(29)}║`);
+  console.log(`  ║   Backend:   ${config.apiUrl.padEnd(29)}║`);
   console.log('  ║                                          ║');
   console.log('  ║   Press Ctrl+C to stop all services.     ║');
   console.log('  ║                                          ║');
   console.log('  ╚══════════════════════════════════════════╝\n');
 
-  const cmd = process.platform === 'win32' ? `start "" "${URL}"`
-    : process.platform === 'darwin' ? `open "${URL}"`
-    : `xdg-open "${URL}"`;
+  const cmd = process.platform === 'win32' ? `start "" "${config.frontendUrl}"`
+    : process.platform === 'darwin' ? `open "${config.frontendUrl}"`
+    : `xdg-open "${config.frontendUrl}"`;
   exec(cmd);
 }, 5000);

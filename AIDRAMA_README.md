@@ -10,8 +10,8 @@ make up
 
 Then open:
 
-- Frontend: http://localhost:3014
-- Backend API: http://localhost:17177/docs
+- Frontend: http://localhost:39211
+- Backend API: http://localhost:48217/docs
 
 Secrets are read from `Doc/accounts` and written to local `.env.local` by `scripts/bootstrap_env.sh`. `Doc/accounts`, `.env.local`, and legacy `.env` are ignored by git.
 
